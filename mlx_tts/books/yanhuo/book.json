@@ -5,7 +5,7 @@
   "language": "zh",
   "genre": "literary fiction",
   "created": "2026-04-06T16:45:35",
-  "modified": "2026-04-06T19:05:45",
+  "modified": "2026-04-06T19:47:57",
   "settings": {
     "silence_ms": 500,
     "output_format": "flac"
@@ -93,7 +93,7 @@
       "audio": "chapter-004.flac",
       "status": "produced",
       "segments": 0,
-      "duration_s": 484.3
+      "duration_s": null
     },
     {
       "number": 5,
@@ -103,7 +103,7 @@
       "audio": "chapter-005.flac",
       "status": "produced",
       "segments": 0,
-      "duration_s": 900.3
+      "duration_s": null
     }
   ]
 }
