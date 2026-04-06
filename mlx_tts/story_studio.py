@@ -77,6 +77,22 @@ class ProduceRequest(BaseModel):
     output_format: str = "flac"   # "flac" | "wav"
 
 
+class StoryProjectMetadata(BaseModel):
+    source: str = ""
+    created: str = ""
+    author: str = ""
+    language: str = "en"
+
+
+class StoryProject(BaseModel):
+    version: str = "1.0"
+    title: str = "Untitled Story"
+    silence_ms: int = DEFAULT_SILENCE_MS
+    output_format: str = "flac"
+    metadata: StoryProjectMetadata = StoryProjectMetadata()
+    segments: list[SegmentSpec]
+
+
 # ── Job store ──────────────────────────────────────────────────────────────────
 
 # job_id → asyncio.Queue of SSE event dicts (None = done)
@@ -305,6 +321,37 @@ def api_emotions():
     return EMOTIONS
 
 
+@app.post("/api/export")
+async def api_export(req: ProduceRequest):
+    """Export a story project as downloadable JSON."""
+    project = {
+        "version": "1.0",
+        "title": req.title,
+        "silence_ms": req.silence_ms,
+        "output_format": req.output_format,
+        "metadata": {
+            "source": "story_studio",
+            "created": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "author": "",
+            "language": "en",
+        },
+        "segments": [s.model_dump() for s in req.segments],
+    }
+    return project
+
+
+@app.post("/api/import")
+async def api_import(project: StoryProject):
+    """Validate and echo back an imported story project."""
+    errors = []
+    for seg in project.segments:
+        if seg.lang not in LANGUAGES:
+            errors.append(f"Unknown language '{seg.lang}' in segment '{seg.id}'")
+    if errors:
+        return JSONResponse({"error": "; ".join(errors)}, status_code=400)
+    return project.model_dump()
+
+
 # ── HTML Studio ────────────────────────────────────────────────────────────────
 
 HTML = r"""<!DOCTYPE html>
@@ -377,6 +424,26 @@ header svg { flex-shrink: 0; }
   justify-content: center; transition: all .15s;
 }
 .btn-add:hover { border-color: var(--accent); color: var(--accent2); background: rgba(124,106,247,.06); }
+
+/* ── Toast notification ── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 20px; font-size: 0.85rem; color: var(--text); z-index: 1000;
+  box-shadow: 0 4px 24px rgba(0,0,0,.4);
+  opacity: 0; transition: opacity .3s; pointer-events: none;
+}
+.toast.visible { opacity: 1; }
+
+/* ── Settings row in header ── */
+.header-settings {
+  display: flex; gap: 8px; align-items: center; font-size: 0.75rem; color: var(--muted);
+}
+.header-settings select, .header-settings input {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 4px 8px; font-size: 0.75rem; width: auto;
+}
+.header-settings input { width: 60px; }
 
 /* ── Segment card ── */
 .seg-card {
@@ -523,6 +590,24 @@ audio { width: 100%; border-radius: 8px; }
   </svg>
   <input class="title-input" id="storyTitle" placeholder="Story title…" value="The White Fox Spirit">
   <div class="header-actions">
+    <div class="header-settings">
+      <label>Silence</label>
+      <input type="number" id="silenceInput" value="500" min="0" max="5000" step="100"> ms
+      <label style="margin-left:6px">Format</label>
+      <select id="formatSelect">
+        <option value="flac" selected>FLAC</option>
+        <option value="wav">WAV</option>
+      </select>
+    </div>
+    <button class="btn btn-sm btn-ghost" onclick="document.getElementById('importInput').click()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Import
+    </button>
+    <input type="file" id="importInput" accept=".story.json,.json" style="display:none" onchange="importStory(this)">
+    <button class="btn btn-sm btn-ghost" onclick="exportStory()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </button>
     <div class="status-dot idle" id="statusDot"></div>
     <span id="statusLabel" style="font-size:.8rem;color:var(--muted)">Idle</span>
     <button class="btn" id="produceBtn" onclick="produce()">
@@ -869,8 +954,8 @@ async function produce() {
       emotion: s.emotion,
       speed: s.speed,
     })),
-    silence_ms: 500,
-    output_format: 'flac',
+    silence_ms: parseInt(document.getElementById('silenceInput').value) || 500,
+    output_format: document.getElementById('formatSelect').value,
   };
 
   let jobId;
@@ -1011,8 +1096,114 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,' ');
 }
 
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg, duration = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('visible');
+  setTimeout(() => el.classList.remove('visible'), duration);
+}
+
+// ── Export ──────────────────────────────────────────────────────────────────
+async function exportStory() {
+  const validSegs = segments.filter(s => s.text.trim());
+  if (!validSegs.length) { alert('No segments to export.'); return; }
+
+  const body = {
+    title: document.getElementById('storyTitle').value || 'Untitled Story',
+    segments: validSegs.map(s => ({
+      id: s.id,
+      character: s.character,
+      text: s.text,
+      voice: s.voice,
+      lang: s.lang,
+      emotion: s.emotion,
+      speed: s.speed,
+    })),
+    silence_ms: parseInt(document.getElementById('silenceInput').value) || 500,
+    output_format: document.getElementById('formatSelect').value,
+  };
+
+  try {
+    const r = await fetch(`${API}/api/export`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (data.error) { alert('Export failed: ' + data.error); return; }
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const slug = (data.title || 'story').toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${slug}.story.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${validSegs.length} segments`);
+  } catch(e) {
+    alert('Export failed: ' + e.message);
+  }
+}
+
+// ── Import ──────────────────────────────────────────────────────────────────
+function importStory(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  input.value = '';  // reset so same file can be re-imported
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const project = JSON.parse(e.target.result);
+      if (project.version !== '1.0') {
+        alert('Unsupported story file version: ' + project.version);
+        return;
+      }
+      if (!project.segments || !project.segments.length) {
+        alert('Story file has no segments.');
+        return;
+      }
+
+      // Clear existing segments
+      segments = [];
+      segCounter = 0;
+      charColorMap.length = 0;  // reset color map — actually it's an object, not array
+      Object.keys(charColorMap).forEach(k => delete charColorMap[k]);
+
+      document.querySelectorAll('.seg-card').forEach(c => c.remove());
+
+      // Set title
+      document.getElementById('storyTitle').value = project.title || 'Untitled Story';
+
+      // Set settings
+      if (project.silence_ms) document.getElementById('silenceInput').value = project.silence_ms;
+      if (project.output_format) document.getElementById('formatSelect').value = project.output_format;
+
+      // Load segments
+      project.segments.forEach(seg => {
+        addSegment({
+          character: seg.character || 'Character',
+          voice: seg.voice || 'af_heart',
+          lang: seg.lang || 'en-us',
+          emotion: seg.emotion || 'neutral',
+          speed: seg.speed || 1.0,
+          text: seg.text || '',
+        });
+      });
+
+      showToast(`Imported "${project.title}" — ${project.segments.length} segments`);
+    } catch(err) {
+      alert('Failed to parse story file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
 boot();
 </script>
+<div class="toast" id="toast"></div>
 </body>
 </html>
 """
