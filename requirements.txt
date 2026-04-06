@@ -1,0 +1,2 @@
+# MLX TTS — Apple Silicon only (Python 3.11+)
+mlx-audio>=0.4.0
