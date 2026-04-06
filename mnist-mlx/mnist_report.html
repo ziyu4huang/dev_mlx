@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MNIST MLX Benchmark Report</title>
+<style>
+  :root {
+    --bg:#0f1117; --card:#1a1d27; --border:#2a2d3a;
+    --accent:#5e81f4; --green:#4ade80; --yellow:#facc15;
+    --text:#e2e8f0; --muted:#64748b;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'SF Pro Display',system-ui,sans-serif;
+          font-size:14px; line-height:1.6; padding:32px; }
+  h1   { font-size:24px; font-weight:700; margin-bottom:4px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:32px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:32px; }
+  .kpi  { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+  .kpi .label { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+  .kpi .value { font-size:26px; font-weight:700; margin-top:4px; }
+  .kpi .value.green  { color:var(--green); }
+  .kpi .value.accent { color:var(--accent); }
+  .kpi .value.yellow { color:var(--yellow); }
+  section { margin-bottom:40px; }
+  h2 { font-size:16px; font-weight:600; margin-bottom:12px; border-left:3px solid var(--accent);
+         padding-left:10px; }
+  table { width:100%; border-collapse:collapse; background:var(--card);
+            border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  th,td { padding:10px 14px; text-align:right; border-bottom:1px solid var(--border); }
+  th    { text-align:right; color:var(--muted); font-weight:500; font-size:12px;
+            text-transform:uppercase; letter-spacing:.04em; background:#13161f; }
+  th:first-child, td:first-child { text-align:left; }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:#20243a; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px;
+             font-weight:600; }
+  .badge.best   { background:#14532d; color:var(--green); }
+  .badge.good   { background:#1e3a5f; color:#93c5fd; }
+  .bar-wrap { background:#1e2130; border-radius:4px; height:8px; margin-top:4px; }
+  .bar      { height:8px; border-radius:4px; background:var(--accent); }
+  .img-grid { display:flex; flex-wrap:wrap; gap:10px; }
+  .img-card { background:var(--card); border:1px solid var(--border); border-radius:8px;
+                padding:8px; display:flex; align-items:center; gap:10px; width:200px; }
+  .img-info { flex:1; font-size:12px; }
+  .chart-row { display:flex; gap:16px; }
+  .chart-box { flex:1; background:var(--card); border:1px solid var(--border);
+                 border-radius:12px; padding:16px; }
+  canvas { width:100% !important; max-height:280px; }
+  footer { color:var(--muted); font-size:12px; margin-top:48px; text-align:center; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<h1>MNIST · MLX Benchmark Report</h1>
+<p class="sub">Generated 2026-04-04 17:21:21 &nbsp;|&nbsp; Apple M1 · 8 GB unified memory &nbsp;|&nbsp;
+   MLX 0.29.3 · Python 3.9.6 · Device: Device(gpu, 0)</p>
+
+<div class="grid">
+  <div class="kpi"><div class="label">Best Test Accuracy</div>
+    <div class="value green">98.22%</div></div>
+  <div class="kpi"><div class="label">Peak Train Throughput</div>
+    <div class="value accent">324,485 smp/s</div></div>
+  <div class="kpi"><div class="label">Fwd-Pass Latency</div>
+    <div class="value yellow">4.17 ms</div></div>
+  <div class="kpi"><div class="label">Fwd-Pass Throughput</div>
+    <div class="value accent">2,396,998 smp/s</div></div>
+  <div class="kpi"><div class="label">Total Benchmark Time</div>
+    <div class="value">28.8 s</div></div>
+  <div class="kpi"><div class="label">Configs Evaluated</div>
+    <div class="value">5</div></div>
+</div>
+
+<section>
+<h2>Training Curves</h2>
+<div class="chart-row">
+  <div class="chart-box"><canvas id="lossChart"></canvas></div>
+  <div class="chart-box"><canvas id="accChart"></canvas></div>
+</div>
+</section>
+
+<section>
+<h2>Config Results</h2>
+<table>
+<thead><tr>
+  <th>Config</th><th>Batch</th><th>LR</th>
+  <th>Final Loss</th><th>Final Acc</th><th>Best Acc</th>
+  <th>Avg Throughput</th><th>Train Time</th><th></th>
+</tr></thead>
+<tbody>
+<tr><td>LR=1e-3, B=64</td><td>64</td><td>0.001</td><td>0.0141</td><td>97.69%</td><td>98.22% <span class="badge good">good</span></td><td>44,414 smp/s</td><td>13.54 s</td><td></td></tr>
+<tr><td>LR=1e-3, B=256</td><td>256</td><td>0.001</td><td>0.0078</td><td>97.84%</td><td>98.03% <span class="badge good">good</span></td><td>141,755 smp/s</td><td>4.25 s</td><td></td></tr>
+<tr><td>LR=1e-3, B=512</td><td>512</td><td>0.001</td><td>0.0137</td><td>97.89%</td><td>98.01% <span class="badge best">best</span></td><td>302,334 smp/s</td><td>1.99 s</td><td></td></tr>
+<tr><td>LR=5e-4, B=256</td><td>256</td><td>0.0005</td><td>0.0257</td><td>97.58%</td><td>97.79% <span class="badge good">good</span></td><td>144,685 smp/s</td><td>4.16 s</td><td></td></tr>
+<tr><td>LR=3e-3, B=256</td><td>256</td><td>0.003</td><td>0.0110</td><td>97.55%</td><td>97.91% <span class="badge good">good</span></td><td>141,986 smp/s</td><td>4.25 s</td><td></td></tr>
+</tbody>
+</table>
+</section>
+
+<section>
+<h2>Per-Epoch Detail</h2>
+
+<h3 style="font-size:13px;color:#94a3b8;margin:16px 0 8px">LR=1e-3, B=64</h3>
+<table>
+<thead><tr><th>Epoch</th><th>Loss</th><th>Test Acc</th><th>Throughput (smp/s)</th></tr></thead>
+<tbody><tr><td>1</td><td>0.1926</td><td>96.70%</td><td>45,836</td></tr><tr><td>2</td><td>0.0759</td><td>97.65%</td><td>46,114</td></tr><tr><td>3</td><td>0.0501</td><td>97.78%</td><td>44,834</td></tr><tr><td>4</td><td>0.0372</td><td>97.99%</td><td>43,707</td></tr><tr><td>5</td><td>0.0256</td><td>97.89%</td><td>44,700</td></tr><tr><td>6</td><td>0.0213</td><td>97.98%</td><td>44,238</td></tr><tr><td>7</td><td>0.0178</td><td>98.22%</td><td>44,870</td></tr><tr><td>8</td><td>0.0141</td><td>98.14%</td><td>39,204</td></tr><tr><td>9</td><td>0.0128</td><td>98.07%</td><td>42,455</td></tr><tr><td>10</td><td>0.0141</td><td>97.69%</td><td>48,183</td></tr></tbody>
+</table>
+
+<h3 style="font-size:13px;color:#94a3b8;margin:16px 0 8px">LR=1e-3, B=256</h3>
+<table>
+<thead><tr><th>Epoch</th><th>Loss</th><th>Test Acc</th><th>Throughput (smp/s)</th></tr></thead>
+<tbody><tr><td>1</td><td>0.2625</td><td>96.22%</td><td>132,794</td></tr><tr><td>2</td><td>0.0912</td><td>97.24%</td><td>165,104</td></tr><tr><td>3</td><td>0.0622</td><td>97.47%</td><td>130,027</td></tr><tr><td>4</td><td>0.0454</td><td>97.59%</td><td>152,776</td></tr><tr><td>5</td><td>0.0332</td><td>97.51%</td><td>132,145</td></tr><tr><td>6</td><td>0.0251</td><td>98.03%</td><td>145,110</td></tr><tr><td>7</td><td>0.0191</td><td>98.00%</td><td>149,705</td></tr><tr><td>8</td><td>0.0145</td><td>97.98%</td><td>127,918</td></tr><tr><td>9</td><td>0.0104</td><td>97.92%</td><td>131,864</td></tr><tr><td>10</td><td>0.0078</td><td>97.84%</td><td>150,103</td></tr></tbody>
+</table>
+
+<h3 style="font-size:13px;color:#94a3b8;margin:16px 0 8px">LR=1e-3, B=512</h3>
+<table>
+<thead><tr><th>Epoch</th><th>Loss</th><th>Test Acc</th><th>Throughput (smp/s)</th></tr></thead>
+<tbody><tr><td>1</td><td>0.3454</td><td>95.50%</td><td>304,106</td></tr><tr><td>2</td><td>0.1181</td><td>96.82%</td><td>324,485</td></tr><tr><td>3</td><td>0.0808</td><td>97.14%</td><td>279,504</td></tr><tr><td>4</td><td>0.0606</td><td>97.48%</td><td>284,747</td></tr><tr><td>5</td><td>0.0460</td><td>97.45%</td><td>303,365</td></tr><tr><td>6</td><td>0.0364</td><td>97.70%</td><td>300,230</td></tr><tr><td>7</td><td>0.0293</td><td>97.90%</td><td>296,854</td></tr><tr><td>8</td><td>0.0231</td><td>98.01%</td><td>300,256</td></tr><tr><td>9</td><td>0.0180</td><td>97.84%</td><td>321,171</td></tr><tr><td>10</td><td>0.0137</td><td>97.89%</td><td>308,625</td></tr></tbody>
+</table>
+
+<h3 style="font-size:13px;color:#94a3b8;margin:16px 0 8px">LR=5e-4, B=256</h3>
+<table>
+<thead><tr><th>Epoch</th><th>Loss</th><th>Test Acc</th><th>Throughput (smp/s)</th></tr></thead>
+<tbody><tr><td>1</td><td>0.3220</td><td>95.12%</td><td>158,089</td></tr><tr><td>2</td><td>0.1323</td><td>96.59%</td><td>148,165</td></tr><tr><td>3</td><td>0.0959</td><td>96.79%</td><td>151,010</td></tr><tr><td>4</td><td>0.0763</td><td>97.26%</td><td>130,202</td></tr><tr><td>5</td><td>0.0618</td><td>97.47%</td><td>134,906</td></tr><tr><td>6</td><td>0.0516</td><td>97.74%</td><td>143,074</td></tr><tr><td>7</td><td>0.0428</td><td>97.65%</td><td>146,235</td></tr><tr><td>8</td><td>0.0365</td><td>97.79%</td><td>139,345</td></tr><tr><td>9</td><td>0.0309</td><td>97.79%</td><td>136,703</td></tr><tr><td>10</td><td>0.0257</td><td>97.58%</td><td>159,124</td></tr></tbody>
+</table>
+
+<h3 style="font-size:13px;color:#94a3b8;margin:16px 0 8px">LR=3e-3, B=256</h3>
+<table>
+<thead><tr><th>Epoch</th><th>Loss</th><th>Test Acc</th><th>Throughput (smp/s)</th></tr></thead>
+<tbody><tr><td>1</td><td>0.2339</td><td>96.57%</td><td>150,820</td></tr><tr><td>2</td><td>0.0797</td><td>97.61%</td><td>140,580</td></tr><tr><td>3</td><td>0.0524</td><td>97.73%</td><td>155,952</td></tr><tr><td>4</td><td>0.0372</td><td>97.83%</td><td>149,668</td></tr><tr><td>5</td><td>0.0267</td><td>97.65%</td><td>146,577</td></tr><tr><td>6</td><td>0.0202</td><td>97.85%</td><td>125,884</td></tr><tr><td>7</td><td>0.0178</td><td>97.78%</td><td>139,983</td></tr><tr><td>8</td><td>0.0124</td><td>97.91%</td><td>137,244</td></tr><tr><td>9</td><td>0.0079</td><td>97.82%</td><td>117,059</td></tr><tr><td>10</td><td>0.0110</td><td>97.55%</td><td>156,087</td></tr></tbody>
+</table>
+</section>
+
+
+<section>
+<h2>Digit Recognition Samples — Correct (9,789 / 10,000 &nbsp;=&nbsp; 97.89%)</h2>
+<p style="color:#64748b;font-size:12px;margin-bottom:12px">
+  3 random correct samples per digit class (0–9)</p>
+<div class="img-grid">
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABo0lEQVR4nO3UP0iUcRzH8Vd6BEWDlbkEBaVB1yZ2ttxaNFiIFVHgGhdB0GJFKVGT0qAtF0g0NEhRFBZYGA02WBFCyw3SH6jhiguMQjSMokMun+N5GurnEPmZfp8vny9vvs/z/f1Y0pL+DS2rLhxyxL3y6YyiQcMKsY01QYhNbmuSigS+mMUBj0IRUwtN1lZMK9lQ9iXUW4Wbig56EZz4UyNGnPROp2+mcFSz7eqsdlWvIWG/6j4DRjXYqduFSrXWgP3q8VKzz0GJtLmDGT36IvW0nJwad+1ZFGLO5ZjouIxpu40F/I/b5BXlDcZGH8tYaUdQYqvv2j1NiA47sQi7+tZkYvS5MdnAxI9u/SaalfbJjYCb02a9JyYSo+MyShoCzrhFWj4x2GKj97orPszt6PXAaGysS5c6lxz/e2Lq1/E885sfVa0hHbjo1IJqiBnXajHhQ1Wg1TGH0afHTGAim7yKuHX6NVpTnu9shBeK2GmvK17rMOWha77KmFNw2n1zVY2h3tVnGq2wvOILzrke2xiKuNmsfu3zbtIubxIa/5joP9APuG9eymFFIdwAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">0</b>
+         &nbsp;True: <b>0</b></div>
+    <div style="color:#94a3b8;font-size:11px">78.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:78%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABYElEQVR4nO2WPUjDQBiGn9RiwKIiOFiHbi6KDiJCwaWCIB0iIv4NDo4uonaUDg5OItbBycmCIKWLioOrQ3GpUoqoIA6iRRc76KStCEcUkiYWwp1T3uW+77v35eHIhQR8+fIizW0jQZIWYaiwSooP235AKrGRPaYsk1cWyCojhthhrmaaw6CsiLjBilkVuWObMZZFN205pTxilAydZt1PAWggzQxwRkwGMWht+8jSYbNU2WQcnS56KUonRn55p4R5NusLPtEJE1FA/NEa6+K9cJdc4jtbVOsE5RK/eKsb9EwM/HswaG1b/7DecKmA2ONg0YijAyVKCog5B0ucI3HCeYU3p5kMs+ZtnWBfrFc8yiFq1naAE9pFNUge6OacEHCPwbUSIkxyINYXDsmzKJ7sA6Pc2nzyiG0cE7VMnhip4cn9WsVYYpgmUVcok2TXISj3HwCGSGCQokDaJeiZ6EuFvgEgCENISOuAfgAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">0</b>
+         &nbsp;True: <b>0</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:100%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABcUlEQVR4nO2UvUtCURjGf16ENMqGoDCiSaHCKRBpKYdCghzKPmhp0DaJiFyCkJJoT2ioPyDKCBejxbY+uNDUB4EQ4SJNQVJESR8kdrvolcDuWcRnOe/7POfeHy+cc6CmapChfNBOEB82urnRyKVKicZygZd4fv0ok+tNHGJNqQMsktOPaNAyZwhhV/XrhEpm1ZNo5ZSOfBUmgZcFLESZF0ZsJUEPIDPJA89YcBFHwsWlIGIvx8AWc7wpXj8ROhnkQghxj1FgrHBSf+TmiGucvAo6q1nOipwTYkzgY1sQ8YD7IieHHyt+YUQtvZChRdWLJ37LhYMrIcQR2sho+PWYlbpioqRlmkzm318rkuU/P6xoxmT+diwRKHnXsqRIC7iPzcRwAzbuipIwfQwIIIKTJA2k6FJ5RobZIMKmECLsMM4nqywXejuzBEkwzaMgYiO7eHgnzT63OJiiiSgrPKn26EuEOjyql/WcQ2XefxNrqg59ASScSWKPhNdkAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">0</b>
+         &nbsp;True: <b>0</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAAzElEQVR4nO2UMQrCQBBFn9FCCxE2haAnEK9gaWNnzBVCjmWZSixyCCsr8QLBwiJEIhZKiqzkALtCMANKXvuZfczOzkLLXxMEZWnLnboHd0zBmRndJow9U3BihmSPK2IcXHKxHq8U9NmwFZxjisuBheAcd4RMUNzEjHtChgyMhd83XoAXhaCxYooiRcr45MHIUljb6JiCJIkirX1f8laPwBxJ4x1YCv4AFSUpYySNGs2aWHA7NFrwrX6imR5zy0bWNlrxvCxTStLY8jO8AQKnJ626WxdFAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">1</b>
+         &nbsp;True: <b>1</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAA+ElEQVR4nO3UIUtDURgG4OfKBQW5GKbFMjAoFg1iEIM/wD9gFaxaLFY1GCwGm8FgXTPowGoxWC0KWoTNhalJHZug9d67cjgg7g0nnI+Xh698DDLI30hSPFo051jdtoec6VBgcdaWdW8qWHITUkzzPudd6Thw5lZWUAwrvlpz78mFTFMjrJiUDbt69uxG2PE3yxJtJ0QSU/t6rj1HE8esoFZYDC/O/LznEcWFPsXw4qREy1d4Mcn/nnInteE02o5dHal6STG02NZQ9RlRHDGKVkQxM9GnGFp88ahqvGTL8Jd805FDOxHFiqZLqxEvwLuaacM+Qov+Qb4BFw0uajMAODUAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">1</b>
+         &nbsp;True: <b>1</b></div>
+    <div style="color:#94a3b8;font-size:11px">98.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:97%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAAqElEQVR4nO3SIQ7CMBjF8X+bAoZAwGB2Ak6AwJAMFNcicBHkboBETHCLJVNTDThCSNCsqn1i2xM1L19+yfcVhnQhJlyfeHL+29hE4oeaLK7oQuURmLPlLhNzYMRSuFXPNP5WbQ8GXXu1Dh45hZgzAR5CcfN7b0Jxh8Hwji2a9qpmxYtZbNH2YNCF60ooZoyBq1DcsxCfoyiaRit6X5bqn3PhkEIc0o18AR2LFwMZNfZNAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">1</b>
+         &nbsp;True: <b>1</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAA6klEQVR4nO3TLUtDURzA4efKwLIly4QJlq1vA2FBEbFZrAY/gtUPYxQEjcJMWiaICLuCwbImyG6QBV0ZvjBRRFH0pnsX5DxwynnhV86fIAh+F/3cmLGj7MmRPX1/m5JVseXMWGTszqbjCRRLWjpq1mwpWhHnXvwy51zXuoyLqZrN0ahSybhYSDuMtTXdTrDIjbrDXIvzGhqqrnVcGqrp5PxzHhTfJ+NtPYq1bDuQeM6t2FW1b2hZ/bMcSbx8u9Wzmllxw67CR+le7ERZyZJpfZGegZJTbYMM53HWgkUXEleGKQ/zmccgCP65V/YhOP3/aQx7AAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">2</b>
+         &nbsp;True: <b>2</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABbUlEQVR4nO2UsUtCcRDHP5ogFGVCQUMUBFEOBhGIU1BLFIG1iEU19B+4NAU1OERbQQZRiw1RS9Di0FANkhgRSGMuJUE0aUEkRMHxCOW91xD3FvGW4+579z7vfvzuBw2rB3NZJYMMMc8kLnJsUyBrUeNWIrrx0ckZ/VW5IjGuHSNGORL/ygndRIxsmWkyWkRPdbDAFvDMMSny+AgQIkELbUQcIqb4IME+TxKVyJJllFnLRh3iHSXWamQ/7TaNOsQRkzzOmDbR9ZcY4JIO4IUB3hyZsdYCnAoP9kw8Z4gR2cov4uxaqNrEPjaZEt4GO5YV2sQZYyfiNjztm7NIkmbZyC4q2kSPOeVjTniPRG15usQgE+KvuJEvD0qUoNfQkxwon2qGMJAmxjvreFkxVTSpzrjEsPgweaCn5pdu+ZQZUSW24hXvx/+bK7Eq/rDqJXDiBYA8RSos803ZpOkRz3ngnhAXpMlRsG38N7Fh9WE/kP9Ikw77o/gAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">2</b>
+         &nbsp;True: <b>2</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABkklEQVR4nO3UP0jUYRzH8ddJ2nIoQhw0OEQR5CA2REghnRUkJEEYgmtLBDUI4iINUQ0FLoJDgy1GgZI6hYdLLRJKENKiwSFtgkNBhHV50s/r+P3yzqH7/RrEz/Lw/fM87+f7PHy/HGg/KFUtcEGHs3pCnil9IauuRmKHhbKr2S1DGhxWjKQWDRmpnXhoZ/lYMo964aRMKGHWF2S1SKkP+Wslfi2Zrc4H6wd5b80h74c211GwGgcxFTUb3ZHDmvWy74xxp2waNJYAcbfa3HcV75yL+JMiNllyzHePTPj8H4hpL12xad61XbEkiI0mXVQwEPm/JIm/gn687WnFaNzEHjPqLHpissrGWvsxrN8z556iRY9Nqab4ajzipod471J5LiRZY8ZzWTwwuicvLmLGhKxvcsZsVEg+4VPMxD5dWHDjr6S0Vr3avQneO75/zJqWRr/lSMpxAzqDWdttJdYaWwIeg06XLlMsxzas6w3x4iH+tBWcs8P7o4Jlz7yWl0R3jLgbsoZdlrPqVcWN/0w80P7QNkTJUsHUUQuqAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">2</b>
+         &nbsp;True: <b>2</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABPUlEQVR4nO2QvyvEcRjHX1990w0MKMstJKm7DBaDLJeFblIGkkk5BotJBpTJH0CdH+OVATmzwWA13YBB4uLKdVGKGyT18Unu+/2grufZvu/leZ735/3p1fNApEj1yHNZcWaYoMvOWVZ4DKUahIgxRkkxHQjtMcWHEnGDWWeskzspou+2i6ybmmTul49SxAq3wCFnHJk5LU/0/n5Ocwy8kOBB+apfamLS1O0QT2fHblYZB57ooyhH9F3mIoNAP21mOqfsyEjuOMAB7TVOlgWqijtmAjzIUGJNcccUJyGvTJKKGjHGEq3s2ilHj6lDnKpdtcryj+nN1jFFYq022TK1EPB1iHFGmLd9Xo3YzD69tm+kxXYXvEoRvaDRwbUjluBKiuj/H7lkmPuQK0d8pvB91Rty7FDi3fGxbmIkDX0C9YI4teHrFEoAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">3</b>
+         &nbsp;True: <b>3</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:100%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABZElEQVR4nO3UP0iVURjH8c8N/6GI3MgGB69ccVC4S0OCkLdFxMCmEIRAhwbXkJai8U4VtCRoQ0PkluLmpmgoDm2aOhVhiRDi0EXhFgUvl8urvi3xvncQf8PhOb/nPHw55zzncKmLoFSU2SPjrttYRsFexJorMREz3mhwQ13I+2rUenzEmtPTbn1K6h2X99WqRbu+BImL8k5cc+RjMJ8whU8RhXER2QjF/Z7jt5NEiWG90IjXllSHOC6HkkJkNn5ir6dBx+7L+hYnMRVl3jItW3khJZNe+ZMgMWdNUxBtK7oqi/tmEzzVwYD33oJ5Rb1W1HoSHzF13uow7Lu5yjl+lsE9c4kRz+qBGbw1VoX3GP4Tmqka8V1oTJ5Y46YuHNpOjNgp746XPujRZsjDwH187jePp3PS5uWkceCn6+W7OzRixa9EiF12z6S/WPXMZkRhPMR6jwyU4y3smPXjH4X/TbzUxdBfqv5FqB6Fdt8AAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">3</b>
+         &nbsp;True: <b>3</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:100%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABLUlEQVR4nO3UvyvFURjH8dfFIhZSsqAoA4MNSZa7KJPBIkpEYvEHMEiRElYDRfePoKQMUv4AkcivosRAivKjbl+hexn0/X6n+xnO85zP09O7c57TIafwlci0xk0owZGki18b80IkXqoIsiPTUrESeXWs00mYxIK/y/nqNIRLTGRaHbpwKGXSEHa1RUz8UqF5wy60OxMPkVY7DjV5iGWO5ZqNokqLzViI3RbTcdt+lmoUxN4gLruPifipUbtuxUlM2rRgPcK3WurRCwaMKVKT9q40uouMuGHbbJCX6TGlGINWI7vVerW2nLvBrSXvFrI0hjvHanvObQW7ZNbGMIlP6bVS/zfvzXNYxESm1Wclwz5VG+EZ1zQZ/sG8Nhf5Tz5iQnmQp8w4CI+YU07+pQ/HqjzKPaIaGwAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">3</b>
+         &nbsp;True: <b>3</b></div>
+    <div style="color:#94a3b8;font-size:11px">94.9% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:94%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAAtElEQVR4nO2VfQrDIAzFX2X3WjyZ9mRmJ9vo6KSlfpTyUkbp+8dAjD+TEAVuXUFD3SUIEAAeWvC6o8RHiyjfNRWvZUF8NgP5xHcnkE1M3UAuMc0dPIuYdvBAJMouHojEkC1tslnEmCm+k+1hoqs5tPTQGOQYqrOpeCEyiMP27LoUnpxj7GyWhc0haqWqP40GVZX5h1pr6uEkiz4uFXPG1N/K/VOgNifSoqqAIK0mgkK8dQ19ANhAHB7lBqeKAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">4</b>
+         &nbsp;True: <b>4</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABNElEQVR4nO3UPSuFYRgH8J+DEooyOIOU5QxIkhzJopiI1DExKWXyKUzysp9BSRkQPgGllCwGBqHkJRYpUQaLQqeDQ9Jzm85/ebqurrtf1133Qz75/CUFvxubNKjhQycWVOy34UFFNGJRrma9M09ZdRKrn2aiFdPODWeqSqPYCyrWiSv3+F6NqHZsPqDY7t5SxivRjU3PAcUJNbYz1Zh+5+a+TEUnthmwlSUmseAkOrHgc2NHk96MWOVAmUaXwXYcl5TO2rBT3FEOLzqxS0ytNQkcmjWC5ZwHo7rVG9Wv3zsxle+9DrsBxSGt9p26UihlSjGWXjcNJWan2IGEW9OmfE20/5y39Ek40+yBfxJTWPzGC3GrPdY9acn5MsLs2K3UzLdeCDGFix8ORi9euLYSQswnRF4Akro72Rvnu4EAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">4</b>
+         &nbsp;True: <b>4</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAAoklEQVR4nO2UUQoDMQhEp9J7bXqy1ZOte7Itzde21aaIfrTkQYQEhyHGCEwmES6jhIYNitvbOYXsAFzHjugrzZGet8xBYfiOKxajghZ5VW1fCinqSFPoU/c7lh4ZXOLIp/hghQ+lzJzDSdKymSOnW0mPjA0NuyHMqqpCXxJ254dmdY5+6J6Kd7Q4epS8XqVRgkhQ+EMTwHvff3NU4yzsOKngDp3hFuTWC51IAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">4</b>
+         &nbsp;True: <b>4</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.9% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABWklEQVR4nO2UTygEYRjGfzv2sG2tAycaKXvRUihnrluUm4vDKhcibVolQoqjlJMSRU4ulnLAxUUpKae97NrDJnKwRVtIGZmmMcM3Kb5vDts+l+99n+d7+x2+P1BROSjgFYyyikaWFYeX5s6uNcnEcRYJE8Bwud2c/Z8Y/GlpRFgg/MugTKJOXrDxlHNuFBFbXd0bKQ6AR55cvhxiDUVg2O5LTFDgRDgoh9jJsSvcYcNzUOZdHWDLqjLEufWBGCNBkirgnhybNl8d8VNFqs3QYI0x/CDCElNovANH9FPygRhihmnrz1lnRB4x6BW8MEsdg2ZdL8hlEBuIkHGFlxYxSpRrBcRtYqRJ8mw7LdbazBwJBUSoZYgmB7HHOscLJpXcHJ192r6Fhrke0iePGPwqQ1xh0C7YlBJ4sl6Hzh4djtCgwC7zvCojQiNxYJkH8nSRpZeccPDPxIrKQx8BEUQkfUZKoQAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">5</b>
+         &nbsp;True: <b>5</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABaklEQVR4nO2Vu0sDQRCHv42CHuaQYKHYWNkYU0gQbCQQgpJOJJAqWtio2KSxsbCxMlhYWSg+guI/IaQwdhoLH4UWpkrIoYjgBStPuOhxD0EItxYhv+KYmdvh27m92YG2WkHC6YbocvgxoqTQSVBzJQaaJXY63VMS5jYMa0MNa46cJGKJCYKuJS8cs+1JDPj0VeGaCIIiT6ZXZ4f3b1tOjXBJhDpZSn8k+kccR3gLl0rUMFAYkVejcAcyHCC4pUqeZx4oS6+xoTBhs09q3DFPFfnEHw3Qzw27bKAji/iBQQePTFFmmSRxQqyisuIXUXhDKbq5sHpwhkPzTljgSBrRrVn2CfLGqOM8ZRLhhDSCM6b/jRilQA8VJm294t+fo9BLjArnttgVOiqDDEshLrGJYM9GVFlH5dOaYH4TM+YzzZA1H/sYM+2C4+bz7xyz5H6ZyPcUWeNVClEhTpJF67VGHthCc61rmthWa+gLHM5M1E4ZirAAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">5</b>
+         &nbsp;True: <b>5</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABGElEQVR4nO2TsUtCURSHv2eCNLj0FrHCJV1tize79VpD19B/wMnBtqLRqZocGoMgXNx1c1GhMQcXc3NKcAh84elmLxERuU8K7rf8OPeey8fl3AsGg+GvYK3bmMLF4pQkVa6AUEBGmzQuUfJShZgyYURCuzGCS1Y2T9iX9FRzgzItZddjdDgAShyrzS/TC69AlTE9RqpzY2PYX9TIsOszzXjkmjfeWUTPHT8YSoaJSe6sOKjH6FKXPKQv+UxFTS0o4zc2bZmnRZPz+eR+o/t32FxwSRSPBwpbMc6IM8DjiRzL0PNWf0jhcIvne7NBGR2ZX5Ej9qRucR+wMckNsfl/rJNlottoLS6ccUeXIT06NFcc3NhoMPwXPgE6IjNIBfqoJQAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">5</b>
+         &nbsp;True: <b>5</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABH0lEQVR4nO3TMSiEYRgH8N8hmUyKMhhQV5JCciuDKLKJhW4nRiWLiQzEKJmUumzYTdi5olxJKaK76SRJXbe57wZ93xXdM729/55+PW/Py/+vWLlwyqClgKwmEnHPqC7ZcMW64KjRiP0ALxpxSqunwDSKV017N+ytYjMmdZoP9KIQ496dlGkMX+xx56GC4pAhh2UbwxbH1UoVz01avP7Y2rB3NS1j0gfanInbtRDpjMvaXRW8ehviJRvDFTvUOS3MdygR0BiuOI5brEs492hGPmKRazfGTDiwaMuX48jFvE/TGryYNefAZXhirNTlhQFrWCnEWf3uI57xSJ9VO541i1kp4YX/HzctFaOcXpkKiHRLGpayLVcy/7VYrWr9lfoGiWo7fMHAHNoAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">6</b>
+         &nbsp;True: <b>6</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABIElEQVR4nO2VL08DMRiHn14W3HYEEExgkcuy7zCFWIIHgwM1D2Jn5mYumViyENT0NIrcJIEQPgBkYvwTsEwh2C3XlIMwziztq+4n2l/bt3nS9s1byGVfKmsh5JgP6txkrHuWibuM2ACmbNomFv6f3tM88DM32iWuc2jchRDxlAqxdvdCRIXHHJhxK0SMmeszvnMlRPxWCCLEAkXjxkLEMke6f+RO9w1gKJI5HkWadHQOJcx9ZzVnhweUzpwpvnGJAgLnxEQ/7oUqb05u9YsZpV/jCVusAdu6dUGc0Kdp/JCIawaUhWoORERcmnruCdQcOENRMv6EZ2fEcep8kzmftOg6/ZHPOUgDYl4Jaf+JsE2spa+nCOjxtBSxMjFXLlbSArncP84rP/H8AAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">6</b>
+         &nbsp;True: <b>6</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABTklEQVR4nO2UO0sDURCFv8SgsRDxgYIvYqdpYiMYMKS0UGwsLLQQWcRYCHaRJGWwEmslghYaEMH4E9KKjW1sjCIKVhFc8AFXMkVAs1lB77Xa05xlzp39mOXOgif98v18pIVlsuyR/FL1GyLGSDHAKHDLsB5iwC1spYjCpkKe+2+ZCWIPBfEV8g6pfmKGBL2UOePcMddLDLBGWqIj0g0a9d6cdXbEC8w1bNQ5Yz9L4gckXBp1EqeJCG+DNxNEX33phkGgg2fXRn0zbjJUe46zyjyLHBslKpTM2ckhk3Sh2GKMDK/GvmqSLHCFTRR4x08TEOLO8B8gAjyxzwUhLMJMkTNMrOqRlPg4YWb/gfjCg3iMuGOuj1ikQjtQlv2f4JRu4/sY5YQ+wOaDIM1SG+HaIBF2sWqxooTFpcHtqKqNBbYJyntLzNTN9yeiJ0/8Sp+wW0CCtXMEZwAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">6</b>
+         &nbsp;True: <b>6</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAAqklEQVR4nO2WSwrDMAxExyH3qnoyyyeLerKWiqY1+FNoM97Eb2GCg3hoIkGAyWRSJ5RXigjDDcAF4k9aKVxwnFGwFXcJBqMZnwgEQESO4Uo0fsg7DgOM8vKVX5NjlLcvz/NP49p7Gf1M9Fnd2Xx66j6GUTzRWp6sVMXP1Cw8vsd7J1FGj/q1kDOryjCGdqboLuvPxuXsharjjKm9iCSj2ejtMCT/9yAYx/MACdsglCHuuSMAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">7</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">85.6% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:85%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABGUlEQVR4nO3Uv0sCYRzH8fcdJ3kNDQoNjRLOggTi5OitIvgHRK1O/guBi4utSoNTooMKQjRJNDQ5RE21pVugkoIgJzzdoPRcQTz3TPcZ7vnxfb68eOB4IEyYMPIYu4sHEtwCcbL0vT2bC/Lc/Wg0USEuONwrud5sgsOzKtHaXbS4lB46oRSQWOaeJDAmBdwQ551j3qSNasQ1HW82FN8psPJp/Ldoam+0/joQ0SzG6IrxU5tYIA180NQmfqfODD2iTUU8ESNJLRjxilNc5sw1iUfkxNjmVaVo+JeWHABfZHjRckeHqHjJr6VeEHd8JINLjyIbtaIl385zBmwY+HjqRQcTgy4N30bVoi3+mdovjarFAedUeQpC1J8tYmoyGqUeO38AAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">7</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABI0lEQVR4nO3Tv0sCYRzH8fd14aKgCS2JW7oKghC0hmvQok0K/QHiLEibq2s0l0RjEKFrQRGGo6uJLTo1mPgjhceCs3t06O55pvsM9zzH5768nhse8OLFizyG9SWICQTI8sA+l1wzBO54YWIb3MKZ6KNAjBPC0o8uKDJyWYzSYkfsmnz/VM+YpEiJfYWSW+L2cumSpUaYNw4Zr9S3HANx26BTERqcckOSBK+WekpvzaBzERq8E+KeXUvtJ6dQhDPOaa3UBn6xztwTjc11gE9gzMGfk7j1j/bkxPPJ5qkSI1QxmEs7NWIGU3hX2sTf9DSLfTqaxQ/a2sQjcX3q0k6NmATmkpuhSkwT2jCoQtzDB3zR1SYuM+ARXWKNCGXya9p/i/qzABS/M5xUQLZUAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">7</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:100%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABnElEQVR4nO3UMUhVURzH8c9LUxF5CYKVLQVPdGyQIBCxlgheQyHZEkFBUxBBUNDSUBAELdKqQ4SFTgamEDUEBVKLTUGkEgnSI6M3lDTc8HB59PTSIOdu7zdc7v9//n++53/PuT8aamgnKvxvcdKoggQbznhet7YrMrHTLSN6NKdEPhpSyYnY5LgJ+8N71RMVRw1jyrkYxObtqW5zYbKHKl55jX4v7bVaVxWTeD08p9y1lmaq2vA+J+I+5xUsumCjlivpxDGPcyHu1irx9R/eJivxzv26upg3560jPjnsVxq3WfDdaO0bxz/HMY/0uuF2Gp/V78oWXtwZO8watO6UNyG+ptW9bVVxHeCQzxJV5fBvZCu255RNavfTRau6nMBBy1Y8yOUcKeoKWymaTl3uh2+KZnKacdC4UuqmmwWXLVqzsqUq3owHzNiDinl9BrBuIaMxHrE9+Muc08EDZp3Uk9kYj/hbVYf51HMSiWFjuRK/eOqSO5o806eEpczGmDen1wcttZvzR9mLnIkMuGpES5jvpunMxh0TG8pDfwFTIlzRhejyzwAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">8</b>
+         &nbsp;True: <b>8</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.9% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABk0lEQVR4nO3VTUiUURTG8Z+D2GwighZj9GUE42AkEbgT2pVFRqhBOwkRwo0tJOjLpRK0amEUSLUMGiGwRRQtKoaEJJMoN+IiBQOVCuyDHKKXYRBnZmP33c2zufecc8/9cw6He6mqqs2opnJojz6npa1qNVkSTWwKh9pK7uOGZZCXdCB2YtqjiPZPeQmHPLTNdWdk/PpfYk2pa6cJ9fgm640Peo2bd0szzrsfnJhwV7c1j932LPLU6dYvjefarAXv6kjE6/GgeGDAZUkrBt0p8kLWOGuvMZ0Fa79RrVh2bMP0hJ2cbGFtci3i5QyUTGtYYrsxP9QZdgI/3ZQrOROuqzktmHLBRV1Y0uZtmcRwxN3m1llZl8yWTQzX1c86XdFcuPFpBV7YF4AWLySj3UcdZsISa8s5d0l65Y+jMl5r8D3mGlNeStmOe87hlCcxEw+asmpr9L71GzLppC+xdnXZgh0affLbEvYV/4u4iAtGXTUt773DWPE19llNGdFetI54FzuRLW7oUG/RWbl1P0YAYlVx6C8OWVwPq75rjAAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">8</b>
+         &nbsp;True: <b>8</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABiUlEQVR4nO3UvWtTURjH8c8thTaEq+DLXyC4BEQcxKIgWlqpwaG4CAXRIriapa4VdREUpRYahNqhpaDYLjroIDro4FZQSwq+QoXWYHAoOqncayyBKEi4p1O+0/095zx873M4HNq0aYWoMSzq1Of9fzV2tKRDZ2N47pSSG1bds0/kJ14ZtJKlMWoMOWNOqyi7li4lRqouGQtkJO+64fp3ITUW3FJ1yKcgp8qaEnVnr3FUxCbddiTQjAl5RbOp8Umat3gkpyDMjAlrnlqyU9lu3/BFTY6ARlbsMmnIGdNqunW5m50x+vfSHcdVHHPOWYMebIBR6ky4aDTwqf4hSn/ojSk2wNjjobxF7wwYcjk7Y9Rc2mxctz7zRn313TOxXh+DzXjAeUctGFGuV66YsSeYca/7YhdMWF2vVbGjqTEr4yaxz+YafL8ZdlUY44LHDitaVluvbf9rY3Y3Z5tp+710s/6qlpy01Qs9wYwJE06IdfiRJpYUvRX2zelSclA/Xpsx60PTjpaNbULwC56PVp6/pVqmAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">8</b>
+         &nbsp;True: <b>8</b></div>
+    <div style="color:#94a3b8;font-size:11px">89.1% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:89%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAA40lEQVR4nO2T0QnCMBCGP6VjmMxhcA2Na0j3qHaNVtfQ7tG4h9JYQpDUp0tB9H9Iwt3BR+6/g7/++g4tplOGG+DY4BLZZQZij/K3Q0sSi3RYcfU8R02FoctObEbehh7NKlEhS7SYqJsVNruPD39qHJZmokjyjzbwSrZRtM1GHHTGULFjWpJdbSPS2b+HIvW2lZJE670btKf1ni6yT06PoqP2zokTi1RQhx4aSGy/PJHgmQkRMR+Lz+kDcB/Z8xAVcElm8hCtP1+b72YhrqJ3NwtxPTmpuYi7MDdzEY+UnKSJ/ICegZ8uvAs662UAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">9</b>
+         &nbsp;True: <b>9</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABUUlEQVR4nO3UzyvfcRwH8MdXLC5K0U6T4mKGpdmBOGBZDlJ2WMpBXDX2Byw50Nwc5efFATtv9ZVGzUGyxji4+AccvkXZ6KuUvll9fbns/f2cvs/T+/V+v189evfu/SaXXHLJnJhHMmJArZi/XjlKW8sTWnxuRpMLG2i2Y8BpGDE/02SLaS+ceGPbpUK7ury0njXxo0+KTRh3dVt3qhH3PW1XOHHUlHMdtlzf1uXGsCaZpXsscazUkIVUXW1Wk7ju1HnDn7FRqRMrqarPpGdYveeFE88kPdHgjzrvtCtA3HKGxnCvY1NrarTmi88qDFoMKeanTwwbUmXfjm+6Vbiyl7ExnPjbh7vxa2w4yLL4L2X6cUhkYqunkr5GJhZ4j3lbkYk9eiXMPNgYXhzFil+RiW/VS5h7pDG02KbIkp+RiTEtEne/eRRiiUo/Hvhr/luMPjfhgEUSwAZexwAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">9</b>
+         &nbsp;True: <b>9</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABRUlEQVR4nO3VMWgTUBAG4C+lZJFYo1mKg6Jb6iCIgxJLsVBQBxEsQWhX0cHJQXDqIJEKRSihpZ0cLHQrlSAipMUxoHQwgw42ULq4KCK4aIxQQgRJ0uW9gDT/9o47Pm54HP30838ksV9DypSrrql6qmzX72Z9IJJ40WM5Hw07LKHhulJE8aQZeZ8sWpaRsYMffkYSky4oOuWRJV/adoQWHyj4Zdk9jDpvLqqYVHDfW7dt4ZKSdy5HFVdNqpmw7ZBpsyquqIcTB/8tHDOGOxqeyTqn4WUbL+SOz93aKzea7xdutB0Mt+MTdWkJ6za8clqhw2CM/5jxASM+R97xb85Km+/gxRCPeui7lY6D4cWsnLL34cVE+/JxVV+Nq/Vsx7whC1288OJd32x2HQwrnpBS8aaH4pojiq1LGF+86YzXrVsfXHQA8gcjrULpyFGO9QAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#4ade80;font-weight:700">✓</span> Pred: <b style="color:#4ade80">9</b>
+         &nbsp;True: <b>9</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#4ade80"></div></div>
+  </div>
+</div></div>
+</section>
+
+<section>
+<h2>Digit Recognition Samples — Wrong (211 mistakes &nbsp;·&nbsp; sorted by confidence)</h2>
+<p style="color:#64748b;font-size:12px;margin-bottom:12px">
+  Most confident wrong predictions — model was sure but incorrect</p>
+<div class="img-grid">
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABAklEQVR4nO2UsUrDUBSGv4QUsjWLToqQLpl8hEocOjoW7AMI4uDQrVtFX8ClS5dC91IKEbp36KRDhy7F+AIiCIogTeEkg0PuIrl3SPMP54f7c87HGe6BSmWQpQpOeBW/YZCb2/8lOqogIcmcYon2HjQ6quDBONGTGvNkiBgQiH/yZojYwBfvKhuLJnalfvBujOhLjXg2RrTlGCkPkgbiVm5NYpCYqobDLwUTrfznmGPxJgtDO64y4j2hoR0PGdGSC9AhkvlHXPLItzYi1JlwBsx5YUqbW9ZcsNFIBJcZ5zL7Cxfoc/cn1UGEA0J6nMovGXPFj3Ziqmt8PIYsoQhipXJoBw78KhhFiRLQAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">1</b>
+         &nbsp;True: <b>6</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABkElEQVR4nO3UPUiVURzH8U+3J6Uggpab2BTiEoEO9kKDYS8gpCEVDUXgIkEGkr0M1XYRaokocAiKpgIjVKzIXpaSDGuQhiKFiLZayiIrK4IHuXjtdgc5Z7u/4RzO7//8+Z7f4TyHsspaiBaVLifWoFuHl+r9nlPJRCFesE5jfrXPzRDEpLi9RKcjqlTM8aoLvgibsc4dWdw1aL321HusyZ9IGVv1yhrX7YU9dnpntcVuF/BCZlxrRKWci6bUueeGSec91WQmDDEpXFYbNmWrCYmTjrquyy4zfszjhSJm9FhlgwnkHHfJMQwU/BVhiYcccN9btU7ZrdEzv1CJK5GILdjuA1457Mmsu99S05GI43ak86CDvuTdvaa9j0Ts9xVXffQz722yTb/nkYijRueVK9TLyBVpjPOussVDLPctHDEpVVzmDHqL3JuwGS9b6ZY+Nc5p9tpmn6ISu5xNg7+RtcJ3bYaLNoY71YbZTdSmY4tH/2kMeaojNqbzZ9ec+Oc9jUFsNoQxpz0o0bhgYlkx9Bc5o1VpLQ5ktwAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">0</b>
+         &nbsp;True: <b>9</b></div>
+    <div style="color:#94a3b8;font-size:11px">100.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABSUlEQVR4nO2TsUoDQRCGvztOMYpwEi5gBBtFIRCfwCKVdqJgqyC+gpVgq6BgIz6A2qmFhdqkEMRUpjEQRKKNIiJCuAheEYhIliDeuSTNbKHcX+wMMzv78S+7ECvW35DVaYNDAghoROq2GNFmAJilQpVlYJg5YJWtCFOOuMCeduM4FRmiEy2MfGd1XoAEKe2gHHGDh1ZW5YxedlgCznmVIlrt2/McAtdMUTPm8ady7AJ3rP/imfE4SgGPGpOUNV15j32s4QHHWp4JjzOcADfkWjeaxsWjW+V5QY8O0yom2VbxlAwrpAGPfly6gHvGxDxmOWAi1P5Q99vUE0UVN3lU/1SG+EYy1LxUZzdf6xE+z6GeDLFEnSL7XAE+i1woj3rJEF0+eWdQuSmTbTso83J8tQbckuk4KPs7hsjTMOXR0pd7sAnMEGP9D30BIKVAy9zlz8gAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">2</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.9% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABCElEQVR4nO2UvWoCQRSFPzcRlCC7jbVVICIkQrAJRGEFm6CFjWDhW5gnSJmnSJFKkiJFfrqQzkdYhGAlgmIRUEIgCkMKV3aWIHem2lPMwDlz+ebOhYFE8krFhUfc0+KWfkTm7Es8jAvrXNFiFpmZIXYBlydrxAptIKtJHfE5HjCgGXMl+R7PFC/QFsoTm2q9kSemdMGEPHDMp6UefTxgylJbKE28Jg0MmVojuuq5P7acDFXejBFdcqwZc7fllekZJBY5Ab5C/1tp54ws8SLC81kbJJ7/o9ARJGYoqD2wRvz5m9+rNaLHJfDLwhpxzgsdVjzs+I8G/9VTnhlRC3kN3vmWICZKxF7aAPH/J1RHS9dmAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">6</b>
+         &nbsp;True: <b>1</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.9% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABI0lEQVR4nO3WvyvEYRwH8JejZDAwCBmZbnEugzIpk0IGg0GXQWQy8T8YuDL5DxgsJqW7KxZhEZJCKX+AH/lxITHIt84N+n6/w3Xv7Xk+Pc/r2/f50UM1lZCaYLPfirRlBUlL3soMTIQijlrzjBbHek3ZdRmx2KrDIdIe7OiQNR+x+DvTVm07syAukRUZt+YUYhPZMmTLSLhiolwxn6dY/MfAcqkrV3xHrTjFr3SKU9xHmwG52MSu75mvS9aiEZvRJFXSjG4dWXSBK08Rn8d6k2Z1/7RP9ARu9nDFCcP6tQf6PgzKR/JXG60ZD3xIzoAN6wEvTDHhzotzm8ak7FlwKulIMYZ7NSPrUp/XktUo9uqNA/d/vgOiEHNmnGnwGK5YTWXkExRnPM2T7gynAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">2</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.9% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABNUlEQVR4nO2UsUtCURSHvydPaHAQlVqcDRoc31AEGg1BDVZDkwQugZL/QZBTEK7uUQ1FY9BqNJS4WFARCEEYBIVCNcWDDO/0TJ9E3PMG8TecyznnHj7u714ujDR0SqXa7XT6b3t9/4WYziTGNxYHskTDmUwwwyPXHhJ7lSRAhiwvQq52K8oes2rDMUfixDV2GSMyYFAn0WCVfdWoUaDKA3X82IL3GOJNrVUWaRHgHSgzL3jGLRUrLNMCV2f1ETfIKd4Kr0COTVV91kc0fheeiAJ5GkCGBfzAB3PUhIlNwo5anpKgqyV2oIv3yWWfQX3EIiYJmtxxyBmTwGmPo1K/XJwyQb6wuNVJNN1bFkHA7suTIa6reOLSlSB2VGcb74g3TDPOEhfce/RypjgnjE2SK53EkYZDP+SWPO2vNAidAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">4</b>
+         &nbsp;True: <b>9</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.9% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABp0lEQVR4nO3U32vNcRzH8ceZ0+EcNSsXFqfkRlvR3FDmpHQmltpcs1a7khtXXPkDqJWiU8iNnyOlaaPszsWoXRHh5BiN3SxqaNM0DjkXON8dR83nuDqvq/fn9X6/evb+9OlDXXXVVVmxqLHEenfMaNbkvowiBuUVXCiba7BIxaNGqzFLS9Wsdb76JGUvJqQM+PDvxNhC65yPHuOZMT0K2h2wWgo37PclMHGtVn2uuhkZyzijBWtMBb3VhJxOpD3ysmxs1HCJ2G4wKHGltHte6XHdrH63IsOT7v6swxDfyZqzwltbbdOk0UDJb9GtC/tM1+Tl/NBm/TLoc0mXU9Im5Zw0r1ZEki7rNu+YI5KGjDhb1g9PZLsRCdNeW2WH55FuuB/gly5KaJBw25UFvFoQ24xLK1omIV+hH/ZW07JmnJcU89TGisGwO/Y6KKdoyjWn/xAMt2OzLXjis2HLZb0JTYxHjV16HTJe+snTVYLhdsya8MJOx+U88DA8Mf77ocNuh7FHpzbvq/DCEBOOaixVGR02KFQNhiDGjPpmyAl5m8z9Jbho4v/Xd3PxX3y5Jfu+AAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">9</b>
+         &nbsp;True: <b>8</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.8% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABNklEQVR4nO2Uv0vDQBSAv6rgIkVKMzjZVSyI4GQH0clN6uIgdXFTXPwDlGZzFIfq5OgPcKh/QlcdLEgp2E0RtwxStUON3PNSWvtjySVIybfc5V5yH/fey0FERMR/IeZNJsmwACTY4I57CbnAK0WJ16l3fDji03jFEkm9oDzdswrHlHgyZmz28XTOHCz/xrHfweKCOdnPS7PDm/YkmGqtYeyMihTTMu6yLvVboSbPO5zg0uCUg7ZamjB6jBNnkRs+yFKmSJoJXGxs2jFpVFgUyPLMOzPyUp4jGgRpVJSZlRFuyf35N/x3Ti+udR4dDrt8wZyxqXu1wF6PaJDGLyw+QzXCA1tUQqjjY6tz5lk2Z4wNCp6zyajs/o1NPgQjnLGt79Uqq7wEnFXFPiXWSHMJxMGEMWI4+AHQj0lpQP2B2QAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">7</b>
+         &nbsp;True: <b>8</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.7% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAA8ElEQVR4nGNgGAXDATBiE+RgmM4QzKDD8AiPRiaq2mjEcIaBgeEUgwUtbGRB5ugzXETiGaDxaWHjRRQpNgZ2PBrJtpEJm+CHD+/egWhlZYQYMpv68cjAcITBioGBYQlDHFzkJIM1wx+qhyoCvGZAB9xojqO2jSsZ/BkYGNwZeBi+4NBIbRshQBSPNHVTDjGAiShVI1QjCz7J10j54QrDPzrYuBMppeowMDH8pYaNTPgkIyP5+cnSSKYfGRmYcRVJNLLx/4AkORsbevnxOcMdBhUGBgZDhi1QkaNofqa2jQcZShnWo4iko6kg28ZRMDwAACdpIsI0aTN3AAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">8</b>
+         &nbsp;True: <b>1</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.7% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABZ0lEQVR4nO2UO0jDQBjHfw2tGik6iIM6OwgiFierg4sWwUUHKQiKm0MnBTfHzi4dfMSCCApuiouDIOgkheILFEQKUqqzjwq1RbiG4PUpzWXLf8j973vw47vkAq5cNSJP5fAKa7STZpxuhkRkj4xUoSkkNrHLrOk/8NIiXJJpXlQQvZVCAcv7LRdgwDHiF+ssECDLA3BMijjNZVUqT7WoSd65BHwk6QMuCPOKk8SiNObZEW6Yq5KMulP9q0W2xHpPWoo7RexkSazbRPhRRfRUT3VxSBC4Y4K3sqwTM84IXo5QBZ4TxH4igheVvlDVp6rTYbpRDHQgy5FUfsCJwhlHWGWqJK0TNl2BHJBQOGOQU1qrlsW4Ji5F7BO/8UmJJzYwrN0nhZJG+8Qb/CTYJM+Z2A9yW7PR/nsMofNMGzEgxT6PdRrtEzPiOcYcECdat1HVfVwmj2HdgFpS9Zc7p4fefzVqjRJdOaFfuxxEm6AwToMAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">2</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.7% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABcUlEQVR4nO3VsU9TURTH8c9rOjnLzPgoY7ETtQkLhY0aVlcT+A8Y3EidHNyMOJHoRpkYcANc1UlfZ1baFSa5ppdKHgVjQt7rQPglZzgn9+Sb+373nMejHoKSm2nLe6mvMtQ8FyRe+nRHY+W+xOrNdE4qaFqUCIKevv07G4sinsRLb1xn2T8biyJm8WYDvf82VgrykSNN3zWmSGw7cKGhXxaxOlk49MOC2SkSydRtOZzaV6Xmp2DJccxWrHklGFr1rSQivwWbTrywph63wCjOLOWmpVjikeaYMoqezzJ7UkPPnJZCbDuItKGeHX3neGJXx771El4O8xKJrte52rl1lzpmnJVATOPe2blVH+2jjg8lEL9o+3jt2F+1ogVXvCKJNbsajg1uHd0Sinir1cnCirrWeBbz2ras4k0JxFTwduxh31wMOpYFe7l/ZXHEgcSCem4er+JCVzd3rjhiV/A0+kmmZsav6Om7id1+b+KjHob+AB6ZZZehnzqkAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">8</b>
+         &nbsp;True: <b>5</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.6% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABxklEQVR4nO3VS0hVURTG8d+1xKAkSRRsoNEtDHqZDtKhCUlNEhoIhRRNoghKatgsqkEhNAmiB9RAyAZNxB70sodQCI4qFIWwLLqVZEIWvqLTJY63ciDbSfgNFmd9e6395+xz9t7MaU4zUWL6wSU+/WMsKyixXo4yGyUUSHmi1cNZJBY4Z5uvRuQb8kCVQp12q3XJlxDE+fEkz35bVfnmpGZJr/WoccsLnRa4GoaYiCcHNRl31AWDMfexCtm6bDIcnDhpQq/S2Ky1tqu2zAfrpKY0hlnV77JlafDWgDo1iq2I/Jd2ZPBCveNZe9NPfZLp+E6RfovdNOKKN/qCEos0OB7NNRGt8bjrBpV6rlJF5A+6bWdA4k+d1mjUHj0GjPgceeRaa5V9yqWc0hTsO7JSPR5pzigb1qHDFuUKDUROKOIRS3Hgr6VtNuOV+0GJa6K4QXdGWZnDqiV0a0n/taGIv1QsrlxJ7RYZclmLe2k3FPGGSvT+zvOcUW7MPCl1nsYqQxH7o7jLXaMWWq9ZfnQyXNNoaEplqN1R4o7leO+j1WnvmDbP/mgMtx9POCQHY9r0OB+dPJOzfCOXuKhdq65pG2dMnNP/oR9o7nFLQ5ReWQAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">0</b>
+         &nbsp;True: <b>8</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.5% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABM0lEQVR4nO2VsUtCQRzHPz0ahAwSaiknqUUECXQqGiposDc0RdBeY4vLK6QpW6RBqv+glpYCFTH8E1xaq0GXQoLAMcroeTzy+QqR+73pfeG47/3ufvfh7uB3ECjQKBpzB2apskCOAp//JhraiBU27D7PoQxxvH8YJ6FcApMDupxyL3rGCHWSfZE2SV4Ez7js4sEM+xwLEr10RIM7fURjiCVGKjVS4lDvaHLreIsT5b6I0PHhVm/YJf7n7rqIbd6ZUj7Khy8V4Jpt5V6ZIKx8loIYcZoSaWeyazd45JIzISJkyLIyEH3inOKvWquTCCEsLI89TUpCxB9NssgOm8zZI7iiwwUPgsSeaqzb7wjzPONHlSuyplzMJ2LLcXuuX0uK2KTOqueMFPGNLcosAWVdxEAS+gZSSjWEJNN+RAAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">9</b>
+         &nbsp;True: <b>4</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.5% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABcklEQVR4nO3UMUiUYRzH8c+p4SAeDYYhJBxZow5eXuCihLg06iAHDhEUNzg0lBxRTRG4VJDSclBRsxSJgg4JIhhSgZshFJhxRdOBg6bRyxFndybIUxDcb3r/v//v/3zf9+V5HqqqKqBGRg5K1Bx26Vi51eCOhPN/i1hXbiVkpA4cDEm8a8XmPyT2qdNRUp901LJe3VH1zovgxH47xacWk4irt67Jqcj76oOuoMQWHS5K+igvJy6mDY/Uykb9JkvFZCjiEz0eapWWVzAophnzThiQcMSMC0GJKWe8MeqKbxgo6bzX5YG0T74EJV7S4Kll6QrB5t/cEDfADdctOme7QuyWayZkfbcVkLhj17zeCqHb+rw0Y7HEC/FXY3Y1Ou7znkDSZcM2PLa2xw/1jcwaivbNT7UbdNWU115ZIDhx1TGNmJMxFp3DuPumbfx6g9BEcgrO6ixW2+555u0+g2GIp61p9Tw69dw0/ofBQxOrqup/0Q8ebUyLwe1PgAAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">0</b>
+         &nbsp;True: <b>6</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.5% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAAkUlEQVR4nO2T0QqAIAxFr9F/tb6s/DL9MwMzxYkYMqKHnQcDcRx3Z4CiKH/B8A3CAcIOPyhcZo0r97mXhYuI8cQRv37YIeaNpvVZnM0xArG7SBhDXNsJUpW0xy5sNOxA6JRIzNHH5Fzq4abN90GiR8rp2by3pfnxTGWMSP9iD1t1LGMsr7L0ZjvpThsVRVG+5AJ63BkmFZ/BmgAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">4</b>
+         &nbsp;True: <b>6</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.3% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABVklEQVR4nO3VO0jDQBjA8f+lKVXsIAiiEaqTSwcdHFxEOghOvnD2BbrooiIODoKPQRSUgjjqIk5CB1dxEXcHF0EHkYJiF4uPoRrxM8YWIQ7edSj9htyX7y75cRcuB+UohVB/D6mnkVEmOGaAR79qGRFj9FPLCHUoXBRbzPxftIM6j4iL9R05bHJGRWQJvpbh8/rj6RcdEgyyyDrVnAHvtBLjMm+EbtFmhyg3tOOSAUKsME+zQXGWKqCHZfHgjU0SBucYFg+uePBr93TxYkx0GJP2sKCaLbjTK87JjlCcBjyoU7SIe9k4q9wVQZym08umyLKgW1S/S7sMeV2u7MMLw3OsoMXLbmnAote4+MoS20CSNHsomorwHVOkpJ3M+4ebEytxeCZCCIvuwLfqEW326SNDlAhpHKldGxURpcbPYI0Nw+IJijaeOGCYMB2c552ImsRylEZ8AC3AP6OgGPW5AAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">8</b>
+         &nbsp;True: <b>5</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.3% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABT0lEQVR4nO2VwSsEURzHP8MUtkVr5WBnUMqW4iYcHLm47UGJi7stJy6UcvZXUKLNYV24OE45ybarKCStVra0hYOxm5qt3ZkarfTbV1v7fZfXb76/+fR97/UeqJZWnY5gkWSeA9Zchi7eKfk0tvyXqFenQS45YYus6/MAiwQpEmCTLxmiVssQIsI4e6RZ4EY4o7/enHFLnnZFGcuao8AFIkT10v5m0ymiYyvZx7IGeWaYNKqIIWI8kFB4coaw6GOJQ2UZc5zRT8ZTqy+xgynuPLtYb6KJSSdRmTtHq2UIs8EqbXyTYMV1t8oSW5kg55zRMEd0V+qznIuvag9xAkwyw4tD/Kzwrkk5NemMjxiev5YAmyQ73PPhccplhAJZRtnFoBeLada58mmUIh6zTIoYr5wyhsE2Jk++jVKrGmGfKDZ5MsSdvL+pgV6rpppqFP0AiZpE0r7x86EAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">6</b>
+         &nbsp;True: <b>2</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.2% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABcklEQVR4nO3UP0hVYRjH8U9iZFeuf7CcAnHQoc0WRaSmNBDKQFwqCAIjEQU3N0FwFwdxLgQJihIKXYIW7Q+IOIS2REtevBpBi6gRnuFyzxEVPOc43d/ynvf5nYcvz/u8z0tJJZ1FF44zLioL1qeuGFKFJTcdFPyyBImXXfNEn4YjToW9+MTyaKDeR02F3Z+gqikjspH/kiPWaLIn76fneCmPjAFZr/1LhZjTL+9NKPbMVTwu6mKyfYyqwzuVFtwr6mKSNUZVbVSlHeMhXnrEGi/cwaSliJPWqc7pxYou2+dCbLUgK6dF7oiXxqnWGQumcEa52/jhe4o11mo3qDP4XlWlEdetp0DM6FKvX0ZzKP7ehE+Jz+MNQ9qKXrhDLfptzVvr9oUVl9hi2F3VIeuXB5btHpMY9+bc9yhY/5rzyrBOm3p8PSExLvGL6aBbn2156BYGTuTFJ86bL4S6XbLp2ymJSc/jrI1zJn44NfHMxJLS0H9l3UkfoeClSgAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">2</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.2% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABk0lEQVR4nO2UTShEURTHf+Mjs5qFKEwiZkNiM7JQQhGNvIWSDSs0HytbtpQiZdIM5Ss7pSnNbIYimiVKyWzGrLCgKJLJRzS3N9O8qdlw727+i9c9539fv3vOO+9CXnn9RaZcRhFdaIDGHWf4uM7yCyQTq+llTdg/Ir7Hy6JCooMxhnQ7wSg3hCllm0lFRCvH1OnrGNMEgF42+KafqBLiKe2ilwfMEeVJz67gJMDw/4lF2WGQdnGMBHHiaR74cdGRsVMWsZUeUd8PJTgxM552Xngw7JTV1RB9GROK4UBHNFApvUZ7lm3lLseLsohXdBpiDZ++smHnTUFXuzkUyQs2gRmq2GVE9455VDCrEeZxYyEmanNRwb7u1NLMcsZOWcQPZhikkXcR+SlkT3c8mNlQQExpWzxT3zApjaBhimQTmzgxxLPUs2PIyCQ+Y2KANb7SmTacRNmSQzTlusm9LHErYjshynAQVkaEBaaAV86JMIiNYlZFRh3RgpsJavT77hOP+DtVEpMqpwWNJq5Y5xLkEfNSoV93rliO5/ZEOAAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">8</b>
+         &nbsp;True: <b>0</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.2% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABg0lEQVR4nO3UMUjUYRjH8c+JcPAfGjQoMBqlQbMc3G42Wwo7aJDgoIYUoqWMhCuqIVvacglRlyNqECcHLxqC4FCCloKICqwoBIcmSeSCf4fk8S/keN/tnuX//n/P+7xfnufl/dGO8JHb37bESQVbVn32NVU6WiV27mdT3k1TcurYUHMmMvG0siEsqXtuvaF2RJvqgKoua0re7dFj9djrisQd9203ZeL0mFhQtGg0Ixenx1mj5tzIzIUn5p0ygoqNsMRctpwomktXm+qqrvkWmfhs9+7+vMI3RvyINtXEecWUU7Nk2nHzTih5EIl4wHVTfnlp2gs7+OCTAUeiTLXbuHGH8cTYrnownWfBqwg93nU5/b538S91AmtWmwrDEPOYUdBvwsOGds4kSuE8p3Pvb86KR96aVPG94Tk/DTd5ajjiUXWDapYNGpIoO2bdWa8zCsMQr3qqnJ52yGKqVN3L5IVzgEtu6Wm8+y8eq/j4j8JwntPlgj5suW3zP4UtE9vRDi3Fb+ePU/GYQLENAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">6</b>
+         &nbsp;True: <b>5</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.1% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAA3ElEQVR4nO2UoQ7CMBCGvy68QYcFuYDGjnfAIHF4LC+AJFhm8UyhsCgSwAEay7BIStItISSdWeglBH5zl7s2X/7ctfDXX98h5So2GRJyJiVkQcLMcSaoSqy5ils0CsPYxsh5MfioxwdzDkDClBEd9t49GkvLdSUD78QN9SKLuYkQJ6xocbK5JuTinZihiAtiXYSInSSWlme+iTv61mGDhtAcYVlEIzTHl5T7wXokmtKOT49dgT/n3WOEvEeEPRpRoiJgIEg8kdIr6fkh3lnTpS26q0c02tmpTOQH9ARRhi0thwLgxwAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">9</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">99.0% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:99%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABFElEQVR4nO3UIUtDYRTG8d+mrIgYZAgDER0DbdMkmJdELcK+gEWbH0HEJJhEDWIWRA2aNIlNizBMBsMNahCDDETnFG4b7C6M3Zvuk845D4c/5z3v+5IqVar2ykTU0WfOuiUH1tq4WV2qP8oYs205jIba+r0mjrtSDKOmvd4SM+2K0y4UUDfgzmzsM044VlC3b8q8WlirGnQYG3FTCUe2vGHYjLJdgVMfsZzqqCc5vGsYaXGKnmOZ8cW5ajhbq3YELXnviA2rPq14UA7zQM2NE4HfGO9qVs6PBWdYdJnAe2z6wq+M2wheHH8OeX++I904iCW8JkrMd2zsmphNGyW6x867jItYUXGdGHHDpHuPEW7XxOT1Dx0DMma8Bq1ZAAAAAElFTkSuQmCC" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">9</b>
+         &nbsp;True: <b>4</b></div>
+    <div style="color:#94a3b8;font-size:11px">98.5% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:98%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABRUlEQVR4nO3Tv2tTURjG8U/aoClkyBKnLtItozXQoZQMdlHIIIWKWEQ3/wMxg4Nzu1UchHbqKIqzuIqlCCqKCFIMKLQgbSGKJFBpchFvc+N0zp3yDIfzvD/48h7ew1hjjZWtQtouWlG1O1S24fWpyIQwxHV3fNP2KRW95IxzkYhFT1xW9yYVve2xq56GIRbTtqdl1l3LqegSJk81hiLyziP3zHn1T0nJvg/RiOwoee6CduKnNTzwMSLxpS/OK//1t9Adqgq1OQPdtGHRi8Qd+GzBL/Fm5BmaCfGKsrUhXmjiiar9c8p1Ew6I/KoVP3SdRc1739Uc5jDjQPO4lsELTez6aqt/a+FtZmNYYkfNb9RN23SUA5Gf/bOpY9VxWGLhf8ltBRdH5GJsTsOM+yOzMYg3VJL9yYvIXua/iEd8aE8vPDF//QHJ2j3E3qj8LgAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">9</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">98.5% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:98%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAA6UlEQVR4nO3UXQqCQBSG4bepTQS1DhXcRaS0Ct1Hf7voj3AZmq3DWsYYDYhkBiYzc+V3NQjDw8c5DgzRn1F99EiRjDteFH3FSX2MkMjOF4WGjiAp8cksimtinoTcrIkeEUHHnkKL+E9PgS7xnRSHnIACW+IMhwsZCTujf0edggKfiA1Tkh8z1duxy0wFJsRqpm27a05ccmjtaU6s3qIrIeY2p5ktMS7uR0+z4h3BnIVFESSC8uOLSdHjTMmDxJLocaREEjS2Vd+uLjmRs1dnl5iR6tf0dIozHCUJNTvJSonfr05vccgQeuUF2sQ/8SEMC10AAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">3</b>
+         &nbsp;True: <b>5</b></div>
+    <div style="color:#94a3b8;font-size:11px">98.4% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:98%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAA+klEQVR4nO2UMWvCQBiGH6OFZkvsUApdBCkqbk6FLu4dOnZz6a5LfoA/o1Mhk1u76OYuOhkoLqFCp9KlRMGagCAEiSlJWwiXm+6Zvns/Xh6OgwOFQpFOIRk1MViHU50r+gy5TSlqiDM+8vDjHNBmIs5YSkbnbLmmxR2wwOKZWUpRpBF8HByegAYWc3a5G490+I28jKfAuwSjSxU3Oo0kGGus/i2KNZ5wyWc43UsyEsUGU74lGIPYK74RiDUWklGFLr3D7FPkDC9nYxyfEmWxRk0VbRt0XeYvtwEu+BBp1P5eDwZgmhmKme/oAS/c4EgzfjHmlWXKJrNRPntPgixI4Gr6GgAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">9</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">98.3% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:98%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABe0lEQVR4nO3TT0hUURzF8c+bQjei24EI24UYVBAkgq0CicC1IQw6s+iPRIVJYCCtokACFyEhColKixYS/Vm1mGUQYtHKIDe1iAEVLBgN/8AwTFPOJAz3tZrf5r5zzzt877mPR33CT3TQC83mTHi9bz9RK/HwQQdKuWg5JDH6t91qxbbzsv+pY9I4blTgxUXs0GPNi4peHMQmI3YM+RqWGFW3+k37pbGKG75jj1GbxqoGQ3c8ZkK3RWeK+qTTnsnH2PGmbqvSJZ12XZs7sRGPGMBDH4s64wraJezajeVWs7o8cVVS0oo+w1qx4YMld20EJiZcsOCQl5od1yLnaJmbd877wMRTFsvUO2cL65ankt5643PpZGG+Y6PZwrpqzDy+u++WLQ/c+ysYquOAKTw3KFfQDYU/4rZH+4JhOl42LjJj0I/izjV887hCMASxQ1qDdUMlHp1I2QxJjH4/Tsr4qderMvuEL/J2Yuq4bNulP3h8qhqsmVif+qhp9gDNaFDTipLt8AAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">2</b>
+         &nbsp;True: <b>4</b></div>
+    <div style="color:#94a3b8;font-size:11px">98.2% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:98%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABXklEQVR4nO2Uu0vDUBTGfxZLaKmtjxZaN12KIoKD+KCTdWjFSXDr7ubgA3RycamDm3+Bi4hbEQchIihu2eqggw5CQKkPNNgONuJtKDWgQ/Vk6recc+7N5ZfvknzQUkvNqK1W/PQwSJRRsgQ5ALZ54f2Xg74/EXtZZMUZ7frGORucCBG3WKKEocYQ43W2QZpXEWKCKG/cqIUA06wy6bjNsSdCdCvAPjOKWGaeI+SJXzokoyqEsfCCGOfO6U5Je0LUKDClOosJLv+P2P7TRgXdIVYpe+IR/GyyrB65IOWBxzhZ+tQL+YigURH02M8YGXIN6WOjs6YSQoLYgc6IK+9swGSYJ5Fb7eJRVYMiMEunmkzyfIjdqkZE/RMWsMCO8nhMVvDLqXBf78+wCFMlSQJTjNioIrcMYdNN6Nu6HBF2yQNXpLgWT4CaYugMAM8kKeGFxwfWmSNIzJUBTRNbktAnZKtL+LOb6/EAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">3</b>
+         &nbsp;True: <b>7</b></div>
+    <div style="color:#94a3b8;font-size:11px">97.9% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:97%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABgklEQVR4nO3UT0hUURSA8Z8lQmViqxnGIA00wlYtRhqhoAJnV4sgCKNWYy0zhVYSbYKiTYTbtkGLVIJKaBVB0RS0CwqkYSIGzPwDlRNh+HzYaNMm3t3Nt7nnnHvu+x73vXtp0OB/aKpfHpJzFkXZfyzckqCx1xPpeGLFSQ8DG3tNS9fkRX2Bje/tjaMH+mT8cspUksbmjek5ndF43DtfPJKxVUvdhckY97sWPem656rSUphXCmi8ZDdKxlVddCXKFn0O+B0XtCKn7K6cbXG15I5bAY1lWYfd29BUkVUOsqtXFZxXqXmNt+YckFIwFuh0dJi17KhJ2y0YMWHOTcOqTm86I0neOav0O+G+V1G8w7hBL/QLaexR9m096/LBvH1mA9wAa7SZ8tSI7/7Q7ozbwYwDunVrcjl2fvXGwU09yRqLPukwZI8bXvph11++pI0zZqQ0y8t77KOddXqSNXLEM7koyseVFT+D/qt0GVWoma7IBDauMuiQC1G05JjXEjE2CMFvDplT1S40mIwAAAAASUVORK5CYII=" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">8</b>
+         &nbsp;True: <b>3</b></div>
+    <div style="color:#94a3b8;font-size:11px">97.9% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:97%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAABNklEQVR4nO2UP0vDYBCHH0OlQlEplI4OXcRFEUWyFZdKByvi6ORYcHRQxFkcLDj4ETqUfoY6uGkHhyLYIjjYTdRBEJTSSM/X9A8NSH3PKb8hv3vvcnlIwh2ECjWKxoanJ9kFMrgUKPA85A7HKnGWa2JS9IB3DjhXJSYokTbFDhE+qJCzRYwMJpIUDa+rKAlQI26yKt7ikEu22AtotEfcMd7gFFgJbLRH/NYdG+Lb5vyENvGeB2CdRXM+UyMuMCP+KNclxsXrNNSIKZLi00xwxL6ZjiZNxXm8YrnnqW1xl6rif/TMe3XU7on1iCeUf9XoWPuqMVzywDwpf8uV/CnRIP5ojppPrLCGPnGKF5/4SoYb5Q3QrzjxgcwfiM6/N0aCCh6fRE2suXO6eiPLhUS3HNvcOaE09AVqBziiP1nn3QAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">9</b>
+         &nbsp;True: <b>8</b></div>
+    <div style="color:#94a3b8;font-size:11px">97.7% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:97%;background:#f87171"></div></div>
+  </div>
+</div>
+<div class="img-card">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4CAAAAACN7WTCAAAAxElEQVR4nO2VYQ6DIAyFn4Z7WU42OJn1ZFtgxlFC1JiWxMz3wxRt8/mKFuDRo3to+IUEwgsAYxEpDG4UjgrEkHknk3GZ6M6nerHSIDKw49JXvdXoqtzNrxgeIXe8lh4xiTBDJgRMVV91iSicevD2BrHwqk1Meudr2j1aI0uPSfJvKf1ZEbG6VP5W3d5DbvbTeh/R5Fl4pC2SU9aOOB8UahPDYeFl4ti90LVvp5nWl0hF3DqPLc/H2IkYMWWf9aRRIOIP9AHtWSKfWfhsgQAAAABJRU5ErkJggg==" width="56" height="56" style="image-rendering:pixelated;border-radius:4px;">
+  <div class="img-info">
+    <div><span style="color:#f87171;font-weight:700">✗</span> Pred: <b style="color:#f87171">7</b>
+         &nbsp;True: <b>8</b></div>
+    <div style="color:#94a3b8;font-size:11px">97.7% conf</div>
+    <div class="bar-wrap"><div class="bar" style="width:97%;background:#f87171"></div></div>
+  </div>
+</div></div>
+</section>
+
+<section>
+<h2>Forward-Pass Benchmark (best model · 10k test set · 100 runs)</h2>
+<table>
+<thead><tr>
+  <th>Metric</th><th>Value</th>
+</tr></thead>
+<tbody>
+  <tr><td>Avg latency per forward pass</td><td>4.172 ms</td></tr>
+  <tr><td>Throughput</td><td>2,396,998 samples/sec</td></tr>
+  <tr><td>Test samples</td><td>10,000</td></tr>
+  <tr><td>Runs</td><td>100</td></tr>
+</tbody>
+</table>
+</section>
+
+<footer>Apple MLX MNIST Benchmark · 2026-04-04 17:21:21</footer>
+
+<script>
+const COLORS = ['#5e81f4','#4ade80','#facc15','#f87171','#a78bfa'];
+const epochs = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+
+const lossDatasets=[{label:'LR=1e-3, B=64',data:[0.19257, 0.07591, 0.0501, 0.03716, 0.02565, 0.02133, 0.01781, 0.01413, 0.01279, 0.01414],borderColor:COLORS[0],backgroundColor:'transparent',tension:.3,pointRadius:3},{label:'LR=1e-3, B=256',data:[0.2625, 0.09121, 0.06222, 0.04539, 0.03323, 0.02514, 0.01908, 0.01449, 0.01039, 0.00784],borderColor:COLORS[1],backgroundColor:'transparent',tension:.3,pointRadius:3},{label:'LR=1e-3, B=512',data:[0.34536, 0.11811, 0.08083, 0.06063, 0.04596, 0.03644, 0.02927, 0.02313, 0.01796, 0.01374],borderColor:COLORS[2],backgroundColor:'transparent',tension:.3,pointRadius:3},{label:'LR=5e-4, B=256',data:[0.32199, 0.13226, 0.09592, 0.0763, 0.06178, 0.05162, 0.04281, 0.03648, 0.03095, 0.02573],borderColor:COLORS[3],backgroundColor:'transparent',tension:.3,pointRadius:3},{label:'LR=3e-3, B=256',data:[0.23389, 0.07974, 0.0524, 0.0372, 0.02675, 0.02022, 0.01776, 0.01241, 0.00791, 0.01097],borderColor:COLORS[4],backgroundColor:'transparent',tension:.3,pointRadius:3}];
+const accDatasets=[{label:'LR=1e-3, B=64',data:[96.7, 97.65, 97.78, 97.99, 97.89, 97.98, 98.22, 98.14, 98.07, 97.69],borderColor:COLORS[0],backgroundColor:'transparent',tension:.3,pointRadius:3},{label:'LR=1e-3, B=256',data:[96.22, 97.24, 97.47, 97.59, 97.51, 98.03, 98.0, 97.98, 97.92, 97.84],borderColor:COLORS[1],backgroundColor:'transparent',tension:.3,pointRadius:3},{label:'LR=1e-3, B=512',data:[95.5, 96.82, 97.14, 97.48, 97.45, 97.7, 97.9, 98.01, 97.84, 97.89],borderColor:COLORS[2],backgroundColor:'transparent',tension:.3,pointRadius:3},{label:'LR=5e-4, B=256',data:[95.12, 96.59, 96.79, 97.26, 97.47, 97.74, 97.65, 97.79, 97.79, 97.58],borderColor:COLORS[3],backgroundColor:'transparent',tension:.3,pointRadius:3},{label:'LR=3e-3, B=256',data:[96.57, 97.61, 97.73, 97.83, 97.65, 97.85, 97.78, 97.91, 97.82, 97.55],borderColor:COLORS[4],backgroundColor:'transparent',tension:.3,pointRadius:3}];
+
+new Chart(document.getElementById('lossChart'), {
+  type:'line',
+  data: {
+    labels: epochs,
+    datasets: lossDatasets
+  },
+  options:{
+    responsive:true, maintainAspectRatio:true,
+    plugins:{ legend:{ labels:{ color:'#e2e8f0', boxWidth:12 } },
+               title:{ display:true, text:'Training Loss', color:'#e2e8f0' } },
+    scales:{
+      x:{ ticks:{ color:'#64748b' }, grid:{ color:'#2a2d3a' } },
+      y:{ ticks:{ color:'#64748b' }, grid:{ color:'#2a2d3a' } }
+    }
+  }
+});
+
+new Chart(document.getElementById('accChart'), {
+  type:'line',
+  data: {
+    labels: epochs,
+    datasets: accDatasets
+  },
+  options:{
+    responsive:true, maintainAspectRatio:true,
+    plugins:{ legend:{ labels:{ color:'#e2e8f0', boxWidth:12 } },
+               title:{ display:true, text:'Test Accuracy (%)', color:'#e2e8f0' } },
+    scales:{
+      x:{ ticks:{ color:'#64748b' }, grid:{ color:'#2a2d3a' } },
+      y:{ min:90, ticks:{ color:'#64748b' }, grid:{ color:'#2a2d3a' } }
+    }
+  }
+});
+</script>
+</body>
+</html>
