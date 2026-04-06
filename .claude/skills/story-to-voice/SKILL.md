@@ -85,7 +85,42 @@ cd mlx_tts
 
 ## Instructions
 
-When the user provides a path, detect the mode and follow the appropriate steps below.
+The skill accepts sub-commands. If no sub-command matches, treat the argument as a file/directory path and auto-detect mode.
+
+### Sub-Commands
+
+#### `open browser [studio|books|tts]`
+
+Start the appropriate WebUI server (if not already running) and open it in Playwright.
+
+| Alias | Server | URL | What Opens |
+|-------|--------|-----|------------|
+| `open browser studio` | Story Studio | `http://localhost:7861` | Segment composer |
+| `open browser books` | Story Studio | `http://localhost:7861/books` | Book browser |
+| `open browser tts` | TTS Studio | `http://localhost:7860` | Simple TTS generator |
+
+**Steps:**
+1. Check if the server is already running: `lsof -ti:<port>`
+2. If not running, start it in background:
+   ```bash
+   cd /Users/huangziyu/proj/dev_mlx/mlx_tts && .venv/bin/python <server>.py
+   ```
+3. Wait for ready: `sleep 3 && curl -s -o /dev/null -w "%{http_code}" http://localhost:<port>/`
+4. Verify routes: `curl -s http://localhost:<port>/openapi.json | python3 -c "import sys,json; ..."`
+5. Navigate in Playwright to the URL
+6. Take a screenshot and show the user
+
+**IMPORTANT:** Always use `.venv/bin/python` (never bare `python` or `python3`).
+
+#### `play <book_name> <chapter>`
+
+Play a chapter's audio file using `afplay`.
+
+```bash
+afplay /Users/huangziyu/proj/dev_mlx/mlx_tts/books/<book_name>/chapters/chapter-<NNN>.flac
+```
+
+Run in background so the user can listen while continuing to chat.
 
 ---
 

@@ -1,29 +1,35 @@
-# MLX TTS — Novel to Voice Story
+# MLX TTS — 文字故事轉多角色有聲書
 
-Convert novel text files into high-quality audiobooks with multi-character voices, emotions, and pacing — powered by Kokoro-82M running on Apple Silicon via MLX.
+將純文字小說自動轉換為高品質有聲書，支援多角色配音、情緒語氣、語速控制——由 Kokoro-82M 模型搭配 Apple MLX 框架驅動。
 
-> **Platform:** This project requires a Mac with Apple Silicon (M-series CPU). Currently verified on M1 8GB MacBook Air. It uses MLX for Apple GPU acceleration and will not work on Intel Macs or other platforms.
+> **平台需求：** 需要 Apple Silicon（M 系列）Mac。目前在 M1 8GB MacBook Air 上驗證通過。使用 MLX 進行 GPU 加速，不支援 Intel Mac 或其他平台。
 
-## What It Does
+---
+
+## 核心特色
+
+- **多角色語音分配** — 每個角色自動配對專屬的性別與性格語音，跨章節保持一致
+- **情緒感知合成** — 8 種情緒預設（neutral、happy、excited、sad、calm、serious、whispery、storytelling），搭配自動語速調整
+- **多語言支援** — 中文、英文（美/英）、日文、西班牙文、法文、義大利文、葡萄牙文、印地文
+- **書籍模式** — 管理多章節小說，角色語音在所有章節間保持一致
+- **雙 WebUI 介面** — 簡易 TTS 工作室 + 進階故事製作台，支援即時進度串流
+- **CLI 管線** — 命令列完成解析、產製、批次處理
+
+---
+
+## 運作流程
 
 ```
-Novel .txt file  ──►  Character detection + emotion analysis  ──►  .story.json  ──►  FLAC/WAV audio
+純文字 .txt  ──►  角色偵測 + 情緒分析  ──►  .story.json  ──►  FLAC/WAV 音檔
 ```
 
-The pipeline breaks a plain text story into segments, identifies speakers, assigns emotions and speaking speeds, casts appropriate voices for each character, then synthesizes speech using Kokoro-82M.
+整個管線將純文字故事拆分為語句段落、辨識說話者、指定情緒與語速、為每個角色分配適當語音，最後使用 Kokoro-82M 合成語音。
 
-## Features
+---
 
-- **Multi-character voice casting** — each character gets a unique, gender-appropriate voice
-- **Emotion-aware synthesis** — 8 emotion presets (neutral, happy, excited, sad, calm, serious, whispery, storytelling) with speed modifiers
-- **Multi-language** — English (US/UK), Mandarin Chinese, Japanese, Spanish, French, Hindi, Italian, Portuguese
-- **Book mode** — manage multi-chapter novels with consistent character voices across all chapters
-- **Two WebUIs** — simple TTS studio and advanced story producer with real-time progress
-- **CLI pipeline** — parse, produce, and batch-process from the command line
+## 快速開始
 
-## Quick Start
-
-### Setup
+### 安裝
 
 ```bash
 cd mlx_tts
@@ -31,52 +37,124 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-### Single Story
+### 單篇故事
 
 ```bash
-# 1. Parse text into structured story JSON
+# 1. 將文字解析為結構化 story JSON
 .venv/bin/python story_to_voice.py parse story.txt --lang zh
 
-# 2. Generate audio
+# 2. 產製音檔
 .venv/bin/python story_to_voice.py produce story.story.json
 ```
 
-### Multi-Chapter Book
+### 多章節書籍
 
 ```bash
-# 1. Initialize book project
+# 1. 建立書籍專案
 .venv/bin/python story_to_voice.py init-book my_novel --lang zh --title "我的小說"
 
-# 2. Place chapter files in books/my_novel/chapters/
+# 2. 將章節檔案放入 books/my_novel/chapters/
 #    chapter-001.txt, chapter-002.txt, ...
 
-# 3. Parse all chapters
+# 3. 解析所有章節
 .venv/bin/python story_to_voice.py parse-chapter books/my_novel/
 
-# 4. Produce audio for all chapters
+# 4. 產製所有章節音檔
 .venv/bin/python story_to_voice.py produce-book books/my_novel/
 ```
 
-### WebUI
+### WebUI 介面
 
 ```bash
-# TTS Studio — simple generation + book browser (port 7860)
+# TTS Studio — 簡易語音合成 + 書籍瀏覽器（port 7860）
 .venv/bin/python webui.py
 
-# Story Studio — advanced segment editor + SSE production (port 7861)
+# Story Studio — 進階段落編輯器 + SSE 即時產製進度（port 7861）
 .venv/bin/python story_studio.py
 ```
 
-Open http://localhost:7860 for the TTS Studio, or http://localhost:7860/books for the book browser.
+| 服務 | Port | 網址 | 用途 |
+|------|------|------|------|
+| TTS Studio | 7860 | `http://localhost:7860` | 簡易語音合成、語音試聽、AI 內容生成 |
+| TTS Studio — 書籍 | 7860 | `http://localhost:7860/books` | 書籍瀏覽與管理 |
+| Story Studio | 7861 | `http://localhost:7861` | 進階段落編輯器 + 即時產製進度 |
+| Story Studio — 書籍 | 7861 | `http://localhost:7861/books` | 書籍瀏覽與管理 |
 
-## Story JSON Format
+### Claude Code Skill 指令
 
-Each story is represented as a `.story.json` file with typed segments:
+使用 Claude Code 時，可透過 `/story-to-voice` skill 執行以下指令：
+
+```
+/story-to-voice open browser books     # 啟動伺服器 + 在 Playwright 開啟書籍瀏覽器
+/story-to-voice open browser studio    # 啟動伺服器 + 開啟 Story Studio
+/story-to-voice open browser tts       # 啟動伺服器 + 開啟 TTS Studio
+/story-to-voice books/yanhuo/          # 解析 + 產製整本書
+/story-to-voice play yanhuo 005        # 播放第 5 章音檔
+```
+
+---
+
+## 情緒預設
+
+每個語句段落都可指定情緒，系統會自動調整語速與語氣：
+
+| 情緒 | 語速 | 適用場景 |
+|------|------|----------|
+| `neutral` | 1.0x | 一般對話 |
+| `happy` | 1.08x | 歡樂、溫暖的時刻 |
+| `excited` | 1.18x | 動作場面、驚喜、緊張 |
+| `sad` | 0.85x | 失落、悲傷、離別 |
+| `calm` | 0.92x | 平靜、結尾、回憶 |
+| `serious` | 0.95x | 緊張、權威、危險 |
+| `whispery` | 0.88x | 親密、秘密、低語 |
+| `storytelling` | 0.97x | 旁白敘述 |
+
+---
+
+## 可用語音
+
+### 中文（國語）
+| 語音 | 性別 | 風格 |
+|------|------|------|
+| `zm_yunjian` | 男 | 渾厚、播報風 — 適合旁白 |
+| `zm_yunxi` | 男 | 自然、溫暖 — 適合男主角 |
+| `zf_xiaobei` | 女 | 活潑、明亮 — 適合女主角 |
+| `zf_xiaoni` | 女 | 溫柔、柔和 — 適合母親角色 |
+
+### 英文（美式）
+| 語音 | 性別 | 風格 |
+|------|------|------|
+| `af_heart` | 女 | 溫暖、感性 |
+| `af_sarah` | 女 | 專業、理性 |
+| `af_bella` | 女 | 明亮、活力 |
+| `am_adam` | 男 | 渾厚、共鳴 |
+| `am_michael` | 男 | 友善、親切 |
+| `am_echo` | 男 | 戲劇性 |
+
+### 英文（英式）
+| 語音 | 性別 | 風格 |
+|------|------|------|
+| `bm_george` | 男 | 經典、醇厚 — 預設旁白 |
+| `bm_lewis` | 男 | 沉穩、安定 |
+| `bf_emma` | 女 | 優雅 |
+
+### 日文
+| 語音 | 性別 | 風格 |
+|------|------|------|
+| `jm_kumo` | 男 | 冷靜 — 旁白 |
+| `jf_alpha` | 女 | 表現力強 |
+| `jf_gongitsune` | 女 | 故事朗讀風 |
+
+---
+
+## Story JSON 格式
+
+每個故事以 `.story.json` 表示，包含分段、角色、情緒等資訊：
 
 ```json
 {
   "version": "1.0",
-  "title": "The Last Light",
+  "title": "最後一盞燈",
   "silence_ms": 500,
   "output_format": "flac",
   "metadata": {
@@ -107,85 +185,44 @@ Each story is represented as a `.story.json` file with typed segments:
 }
 ```
 
-## Available Voices
+---
 
-### Chinese (Mandarin)
-| Voice | Gender | Style |
-|-------|--------|-------|
-| `zm_yunjian` | Male | Deep, broadcast — great for narrator |
-| `zm_yunxi` | Male | Natural, warm — male leads |
-| `zf_xiaobei` | Female | Lively, bright — female leads |
-| `zf_xiaoni` | Female | Gentle, soft — motherly characters |
-
-### English (American)
-| Voice | Gender | Style |
-|-------|--------|-------|
-| `af_heart` | Female | Warm, emotional |
-| `af_sarah` | Female | Professional |
-| `af_bella` | Female | Bright, energetic |
-| `am_adam` | Male | Deep, resonant |
-| `am_michael` | Male | Friendly |
-| `am_echo` | Male | Dramatic |
-
-### English (British)
-| Voice | Gender | Style |
-|-------|--------|-------|
-| `bm_george` | Male | Classic, rich — default narrator |
-| `bm_lewis` | Male | Calm, steady |
-| `bf_emma` | Female | Elegant |
-
-### Japanese
-| Voice | Gender | Style |
-|-------|--------|-------|
-| `jm_kumo` | Male | Calm — narrator |
-| `jf_alpha` | Female | Expressive |
-| `jf_gongitsune` | Female | Storyteller |
-
-## Emotion Presets
-
-| Emotion | Speed | Use For |
-|---------|-------|---------|
-| `neutral` | 1.0x | Default dialogue |
-| `happy` | 1.08x | Joyful moments |
-| `excited` | 1.18x | Action, surprise |
-| `sad` | 0.85x | Loss, sorrow |
-| `calm` | 0.92x | Peaceful, endings |
-| `serious` | 0.95x | Tension, danger |
-| `whispery` | 0.88x | Intimate, secrets |
-| `storytelling` | 0.97x | Narration |
-
-## Book Project Structure
+## 書籍專案結構
 
 ```
 books/my_novel/
-├── book.json                    # Book metadata + character→voice registry
+├── book.json                    # 書籍元資料 + 角色語音對照表
 └── chapters/
-    ├── chapter-001.txt          # Raw chapter text
-    ├── chapter-001.story.json   # Parsed segments
-    └── chapter-001.flac         # Generated audio
+    ├── chapter-001.txt          # 原始章節文字
+    ├── chapter-001.story.json   # 解析後的段落
+    └── chapter-001.flac         # 產製的音檔
 ```
 
-The `book.json` maintains a character voice registry so voices stay consistent across all chapters.
+`book.json` 維護角色語音對照表，確保角色在所有章節中使用相同的語音。例如陳懷遠在第 1 章到第 30 章都使用 `zm_yunxi`，不會中途切換。
 
-## Architecture
+---
 
-- **TTS Engine**: Kokoro-82M model running on Apple MLX framework
-- **Backend**: FastAPI (Python) with async audio generation
-- **Frontend**: Embedded HTML/JS single-page apps
-- **Audio**: FLAC (lossless, default) or WAV output at 24kHz
-- **LLM Integration**: Optional AI content generation via Claude API (for drafting text)
+## 技術架構
 
-## CLI Reference
+- **TTS 引擎**：Kokoro-82M 模型，透過 Apple MLX 框架在 GPU 上運行
+- **後端**：FastAPI（Python），支援非同步音檔生成
+- **前端**：嵌入式 HTML/JS 單頁應用
+- **音訊格式**：FLAC（無損，預設）或 WAV，取樣率 24kHz
+- **LLM 整合**：可選 AI 內容生成功能（需設定 `ANTHROPIC_API_KEY`）
+
+---
+
+## CLI 參考
 
 ```bash
-# Parse a story text file
+# 解析故事文字檔
 python story_to_voice.py parse <file.txt> --lang zh -o output.story.json
 
-# Generate audio from a story JSON
+# 從 story JSON 產製音檔
 python story_to_voice.py produce <file.story.json> -o output.flac
 
-# Book management
-python story_to_voice.py init-book <name> --lang zh --title "Title"
+# 書籍管理
+python story_to_voice.py init-book <name> --lang zh --title "書名"
 python story_to_voice.py parse-chapter books/<name>/ [--chapter NNN]
 python story_to_voice.py produce-book books/<name>/ [--chapter NNN] [--force]
 ```
