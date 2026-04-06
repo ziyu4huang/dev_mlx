@@ -719,6 +719,169 @@ def index():
     return HTML
 
 
+# ── Book Browser ────────────────────────────────────────────────────────────────
+
+from book_manager import BookManager as _BookManager
+
+_bm = _BookManager(books_dir=Path("books"))
+
+# Production jobs (in-memory tracking)
+_prod_jobs: dict[str, dict] = {}
+
+
+@app.get("/books", response_class=HTMLResponse)
+def books_page():
+    html_path = Path(__file__).parent / "book_browser.html"
+    return html_path.read_text(encoding="utf-8")
+
+
+class BookInitRequest(BaseModel):
+    name: str
+    title: str = ""
+    language: str = "zh"
+    author: str = ""
+
+
+class ChapterSaveRequest(BaseModel):
+    title: str = ""
+    segments: list[dict] = []
+    silence_ms: int = 500
+    output_format: str = "flac"
+    metadata: dict = {}
+
+
+class CharactersUpdateRequest(BaseModel):
+    characters: dict
+
+
+@app.get("/api/books")
+def api_list_books():
+    return _bm.list_books()
+
+
+@app.post("/api/books/init")
+def api_init_book(req: BookInitRequest):
+    _bm.init_book(req.name, title=req.title or req.name,
+                  language=req.language, author=req.author)
+    return {"ok": True, "name": req.name}
+
+
+@app.get("/api/books/{name}")
+def api_get_book(name: str):
+    book = _bm.get_book(name)
+    if not book:
+        return JSONResponse({"error": "book not found"}, status_code=404)
+    return book
+
+
+@app.post("/api/books/{name}/scan")
+def api_scan_chapters(name: str):
+    chapters = _bm.scan_chapters(name)
+    return {"chapters": chapters}
+
+
+@app.get("/api/books/{name}/chapters/{num}")
+def api_get_chapter(name: str, num: int):
+    story = _bm.get_chapter(name, num)
+    if not story:
+        return JSONResponse({"error": "chapter not parsed yet"}, status_code=404)
+    audio_path = _bm.get_chapter_audio_path(name, num)
+    if audio_path.exists():
+        story["audio_url"] = f"/api/books/{name}/chapters/{num}/audio"
+    return story
+
+
+@app.put("/api/books/{name}/chapters/{num}")
+def api_save_chapter(name: str, num: int, req: ChapterSaveRequest):
+    story_data = {
+        "version": "1.0",
+        "title": req.title or f"Chapter {num:03d}",
+        "silence_ms": req.silence_ms,
+        "output_format": req.output_format,
+        "metadata": req.metadata,
+        "segments": req.segments,
+    }
+    _bm.save_chapter_story(name, num, story_data)
+    return {"ok": True}
+
+
+@app.put("/api/books/{name}/characters")
+def api_update_characters(name: str, req: CharactersUpdateRequest):
+    _bm.update_characters(name, req.characters)
+    return {"ok": True}
+
+
+@app.get("/api/books/{name}/chapters/{num}/audio")
+def api_chapter_audio(name: str, num: int):
+    audio_path = _bm.get_chapter_audio_path(name, num)
+    if not audio_path.exists():
+        return JSONResponse({"error": "audio not found"}, status_code=404)
+    media = "audio/flac" if audio_path.suffix == ".flac" else "audio/wav"
+    return FileResponse(audio_path, media_type=media)
+
+
+async def _produce_chapter_bg(name: str, num: int, job_id: str):
+    """Background task: produce audio for a chapter via subprocess."""
+    _prod_jobs[job_id] = {"status": "producing", "chapter": num, "progress": 0}
+    story_path = _bm.get_chapter_story_path(name, num).resolve()
+    audio_path = _bm.get_chapter_audio_path(name, num).resolve()
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable, str(Path(__file__).parent / "story_to_voice.py"),
+            "produce", str(story_path), "-o", str(audio_path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            _prod_jobs[job_id]["status"] = "error"
+            _prod_jobs[job_id]["error"] = stderr.decode()[-500:]
+            return
+
+        # Update book.json status
+        if audio_path.exists():
+            import soundfile as sf
+            info = sf.info(str(audio_path))
+            _bm.update_chapter_status(name, num, "produced",
+                                       duration_s=info.duration,
+                                       audio_filename=audio_path.name)
+        _prod_jobs[job_id]["status"] = "done"
+    except Exception as e:
+        _prod_jobs[job_id]["status"] = "error"
+        _prod_jobs[job_id]["error"] = str(e)
+
+
+@app.post("/api/books/{name}/chapters/{num}/produce")
+async def api_produce_chapter(name: str, num: int, background_tasks: BackgroundTasks):
+    job_id = uuid.uuid4().hex[:8]
+    _prod_jobs[job_id] = {"status": "queued", "chapter": num}
+    background_tasks.add_task(_produce_chapter_bg, name, num, job_id)
+    return {"job_id": job_id}
+
+
+@app.post("/api/books/{name}/produce-all")
+async def api_produce_all(name: str, background_tasks: BackgroundTasks):
+    book = _bm.get_book(name)
+    if not book:
+        return JSONResponse({"error": "book not found"}, status_code=404)
+    chapters = [c for c in book.get("chapters", [])
+                if c.get("status") != "produced" and c.get("story_json")]
+    job_id = uuid.uuid4().hex[:8]
+    _prod_jobs[job_id] = {"status": "queued", "chapters": len(chapters)}
+    for ch in chapters:
+        background_tasks.add_task(_produce_chapter_bg, name, ch["number"], job_id)
+    return {"job_id": job_id, "chapters": len(chapters)}
+
+
+@app.get("/api/books/{name}/jobs/{job_id}")
+def api_job_status(name: str, job_id: str):
+    job = _prod_jobs.get(job_id)
+    if not job:
+        return JSONResponse({"error": "job not found"}, status_code=404)
+    return job
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

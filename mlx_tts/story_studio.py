@@ -93,6 +93,14 @@ class StoryProject(BaseModel):
     segments: list[SegmentSpec]
 
 
+class InitBookRequest(BaseModel):
+    name: str
+    title: str = ""
+    language: str = "zh"
+    author: str = ""
+    genre: str = ""
+
+
 # ── Job store ──────────────────────────────────────────────────────────────────
 
 # job_id → asyncio.Queue of SSE event dicts (None = done)
@@ -350,6 +358,281 @@ async def api_import(project: StoryProject):
     if errors:
         return JSONResponse({"error": "; ".join(errors)}, status_code=400)
     return project.model_dump()
+
+
+# ── Books API ───────────────────────────────────────────────────────────────────
+
+sys.path.insert(0, str(Path(__file__).parent))
+from book_manager import BookManager
+
+_bm = BookManager()
+
+
+@app.get("/api/books")
+def api_list_books():
+    return _bm.list_books()
+
+
+@app.post("/api/books/init")
+def api_init_book(req: InitBookRequest):
+    _bm.init_book(req.name, title=req.title or req.name,
+                  language=req.language, author=req.author, genre=req.genre)
+    return _bm.get_book(req.name)
+
+
+@app.get("/api/books/{name}")
+def api_get_book(name: str):
+    book = _bm.get_book(name)
+    if not book:
+        return JSONResponse({"error": "book not found"}, status_code=404)
+    return book
+
+
+@app.put("/api/books/{name}/characters")
+def api_update_characters(name: str, req: dict):
+    book = _bm.get_book(name)
+    if not book:
+        return JSONResponse({"error": "book not found"}, status_code=404)
+    _bm.update_characters(name, req.get("characters", {}))
+    return _bm.get_book(name)
+
+
+@app.get("/api/books/{name}/chapters/{num}")
+def api_get_chapter(name: str, num: int):
+    book = _bm.get_book(name)
+    if not book:
+        return JSONResponse({"error": "book not found"}, status_code=404)
+    story = _bm.get_chapter(name, num)
+    if not story:
+        return JSONResponse({"error": "chapter not parsed yet"}, status_code=404)
+    # Include audio URL if produced
+    audio_path = _bm.get_chapter_audio_path(name, num)
+    result = dict(story)
+    if audio_path.exists():
+        result["audio_url"] = f"/api/books/{name}/chapters/{num}/audio"
+    return result
+
+
+@app.put("/api/books/{name}/chapters/{num}")
+async def api_update_chapter(name: str, num: int, project: StoryProject):
+    """Update chapter segments (human edit)."""
+    book = _bm.get_book(name)
+    if not book:
+        return JSONResponse({"error": "book not found"}, status_code=404)
+    story_data = {
+        "version": "1.0",
+        "title": project.title or f"Chapter {num:03d}",
+        "silence_ms": project.silence_ms,
+        "output_format": project.output_format,
+        "metadata": {"source": f"chapter-{num:03d}.txt", "created": time.strftime("%Y-%m-%dT%H:%M:%S")},
+        "segments": [s.model_dump() for s in project.segments],
+    }
+    _bm.save_chapter_story(name, num, story_data)
+    return story_data
+
+
+@app.post("/api/books/{name}/chapters/{num}/produce")
+async def api_produce_chapter(name: str, num: int, background_tasks: BackgroundTasks):
+    book = _bm.get_book(name)
+    if not book:
+        return JSONResponse({"error": "book not found"}, status_code=404)
+    story = _bm.get_chapter(name, num)
+    if not story:
+        return JSONResponse({"error": "chapter not parsed yet"}, status_code=400)
+
+    job_id, q = _new_job()
+    background_tasks.add_task(_produce_chapter_task, job_id, name, num, story)
+    return {"job_id": job_id}
+
+
+@app.post("/api/books/{name}/produce-all")
+async def api_produce_all(name: str, background_tasks: BackgroundTasks):
+    book = _bm.get_book(name)
+    if not book:
+        return JSONResponse({"error": "book not found"}, status_code=404)
+    chapters_to_produce = [
+        ch for ch in book.get("chapters", [])
+        if ch.get("status") in ("pending", "parsed")
+    ]
+    if not chapters_to_produce:
+        return JSONResponse({"message": "all chapters produced"}, status_code=200)
+
+    job_id, q = _new_job()
+    background_tasks.add_task(_produce_all_task, job_id, name, chapters_to_produce)
+    return {"job_id": job_id, "chapters": len(chapters_to_produce)}
+
+
+@app.get("/api/books/{name}/chapters/{num}/audio")
+def api_chapter_audio(name: str, num: int):
+    audio_path = _bm.get_chapter_audio_path(name, num)
+    if not audio_path.exists():
+        return JSONResponse({"error": "audio not found"}, status_code=404)
+    media = "audio/flac" if audio_path.suffix == ".flac" else "audio/wav"
+    return FileResponse(str(audio_path), media_type=media)
+
+
+async def _produce_chapter_task(job_id: str, book_name: str, chapter_num: int, story_data: dict):
+    """Produce audio for a single chapter."""
+    q = _job_queues[job_id]
+    segs = story_data.get("segments", [])
+    n = len(segs)
+    title = story_data.get("title", f"Chapter {chapter_num:03d}")
+    output_format = story_data.get("output_format", "flac")
+
+    await _push(q, "start", {"total": n, "title": title, "job_id": job_id})
+
+    audio_parts: list = []
+    sr = SAMPLE_RATE
+
+    async with _gen_lock:
+        gen = get_generator()
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, gen._load)
+
+        for idx, seg_dict in enumerate(segs):
+            seg = SegmentSpec(**seg_dict)
+            lang_info = LANGUAGES.get(seg.lang)
+            if not lang_info:
+                await _push(q, "error", {"idx": idx, "message": f"Unknown language: {seg.lang}"})
+                await q.put(None)
+                return
+
+            lang_code = lang_info["code"]
+            em = EMOTIONS.get(seg.emotion, EMOTIONS["neutral"])
+            eff_speed = round(emotion_speed(seg.speed, seg.emotion), 2)
+
+            await _push(q, "segment_start", {
+                "idx": idx, "total": n, "character": seg.character,
+                "voice": seg.voice, "emotion": seg.emotion,
+                "emotion_icon": em["icon"], "speed": eff_speed,
+                "text_preview": seg.text[:80] + ("…" if len(seg.text) > 80 else ""),
+            })
+
+            t0 = time.perf_counter()
+            try:
+                audio_np, sr = await loop.run_in_executor(
+                    None, lambda s=seg, lc=lang_code: _generate_segment(gen, s, lc),
+                )
+            except Exception as exc:
+                await _push(q, "error", {"idx": idx, "message": str(exc)})
+                await q.put(None)
+                return
+
+            elapsed = time.perf_counter() - t0
+            duration = len(audio_np) / sr
+            await _push(q, "segment_done", {
+                "idx": idx, "character": seg.character,
+                "duration": round(duration, 2), "gen_time": round(elapsed, 2),
+                "rtf": round(elapsed / duration, 2) if duration > 0 else 0,
+            })
+            audio_parts.append(audio_np)
+            if idx < n - 1:
+                audio_parts.append(_silence(story_data.get("silence_ms", 500), sr))
+
+    # Combine and write
+    await _push(q, "combining", {"message": "Stitching segments…"})
+    combined = np.concatenate(audio_parts)
+    total_duration = len(combined) / sr
+
+    audio_path = _bm.get_chapter_audio_path(book_name, chapter_num)
+    audio_path.parent.mkdir(parents=True, exist_ok=True)
+    await _push(q, "writing", {"format": output_format, "duration": round(total_duration, 2)})
+
+    await loop.run_in_executor(
+        None,
+        lambda: sf.write(str(audio_path), combined, sr,
+                         format="FLAC" if output_format == "flac" else "WAV",
+                         subtype="PCM_24" if output_format == "flac" else "PCM_16"),
+    )
+
+    file_kb = audio_path.stat().st_size / 1024
+    _bm.update_chapter_status(book_name, chapter_num, "produced",
+                               duration_s=total_duration, audio_filename=audio_path.name)
+
+    result = {
+        "job_id": job_id, "title": title,
+        "url": f"/api/books/{book_name}/chapters/{chapter_num}/audio",
+        "filename": audio_path.name, "duration": round(total_duration, 2),
+        "segments": n, "format": output_format, "size_kb": round(file_kb, 1),
+        "chapter": chapter_num,
+    }
+    _job_results[job_id] = result
+    await _push(q, "done", result)
+    await q.put(None)
+
+
+async def _produce_all_task(job_id: str, book_name: str, chapters: list[dict]):
+    """Produce multiple chapters sequentially."""
+    q = _job_queues[job_id]
+    total_ch = len(chapters)
+    await _push(q, "start", {"total": 0, "title": f"Producing {total_ch} chapters", "job_id": job_id})
+
+    for i, ch in enumerate(chapters):
+        num = ch["number"]
+        await _push(q, "chapter_start", {"chapter": num, "index": i, "total": total_ch})
+
+        story = _bm.get_chapter(book_name, num)
+        if not story:
+            await _push(q, "chapter_skip", {"chapter": num, "reason": "not parsed"})
+            continue
+
+        # Run production inline (reuse the generator)
+        segs = story.get("segments", [])
+        if not segs:
+            await _push(q, "chapter_skip", {"chapter": num, "reason": "no segments"})
+            continue
+
+        audio_parts = []
+        sr = SAMPLE_RATE
+        async with _gen_lock:
+            gen = get_generator()
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, gen._load)
+
+            for idx, seg_dict in enumerate(segs):
+                seg = SegmentSpec(**seg_dict)
+                lang_info = LANGUAGES.get(seg.lang)
+                if not lang_info:
+                    continue
+                lang_code = lang_info["code"]
+                try:
+                    audio_np, sr = await loop.run_in_executor(
+                        None, lambda s=seg, lc=lang_code: _generate_segment(gen, s, lc),
+                    )
+                    audio_parts.append(audio_np)
+                    if idx < len(segs) - 1:
+                        audio_parts.append(_silence(story.get("silence_ms", 500), sr))
+                except Exception:
+                    continue
+
+        if not audio_parts:
+            continue
+
+        combined = np.concatenate(audio_parts)
+        total_duration = len(combined) / sr
+        output_format = story.get("output_format", "flac")
+        audio_path = _bm.get_chapter_audio_path(book_name, num)
+        audio_path.parent.mkdir(parents=True, exist_ok=True)
+
+        await loop.run_in_executor(
+            None,
+            lambda: sf.write(str(audio_path), combined, sr,
+                             format="FLAC" if output_format == "flac" else "WAV",
+                             subtype="PCM_24" if output_format == "flac" else "PCM_16"),
+        )
+
+        _bm.update_chapter_status(book_name, num, "produced",
+                                   duration_s=total_duration, audio_filename=audio_path.name)
+
+        await _push(q, "chapter_done", {
+            "chapter": num, "duration": round(total_duration, 2),
+            "audio": audio_path.name,
+        })
+
+    result = {"job_id": job_id, "chapters_produced": total_ch}
+    _job_results[job_id] = result
+    await _push(q, "done", result)
+    await q.put(None)
 
 
 # ── HTML Studio ────────────────────────────────────────────────────────────────
@@ -1212,6 +1495,20 @@ boot();
 @app.get("/", response_class=HTMLResponse)
 def index():
     return HTML
+
+
+@app.post("/api/books/{name}/scan")
+def api_scan_chapters(name: str):
+    chapters = _bm.scan_chapters(name)
+    return {"chapters": chapters}
+
+
+_BOOK_HTML_PATH = Path(__file__).parent / "book_browser.html"
+
+
+@app.get("/books", response_class=HTMLResponse)
+def book_browser():
+    return _BOOK_HTML_PATH.read_text(encoding="utf-8")
 
 
 # ── Entry ──────────────────────────────────────────────────────────────────────

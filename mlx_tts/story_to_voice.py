@@ -101,9 +101,10 @@ SPEECH_VERBS = (
 ZH_ATTRIBUTION_RE = re.compile(
     r'^(?:他|她|它)(?:在[^的]*的?(?:信|書|紙|日記)[中裡]?|(?:笑|嘆|輕|低|大|急)著?)?(?:寫道|說道|問道|答道|說|問|答|嘆|喊)'
 )
-# Chinese name + speech verb: Name + 說/問 (NOT starting with pronouns)
+# Chinese name + speech verb: Name + 說/問 (NOT starting with pronouns or punctuation)
+# Names are 2-3 chars max (surname + 1-2 given name chars)
 ZH_NAME_ATTRIBUTION_RE = re.compile(
-    r'^([^他她它的我你這那][\u4e00-\u9fff]{1,3})(?:笑著|輕聲|低聲|大聲|急著)?(?:寫道|說道|問道|答道|說|問|答)'
+    r'^([\u4e00-\u9fff]{2,3})(?:笑著|輕聲|低聲|大聲|急著)?(?:寫道|說道|問道|答道|說|問|答)'
 )
 
 # Post-dialogue attribution: "text," the Name said / "text," Name said
@@ -187,22 +188,50 @@ ZH_SURNAMES = set(
 
 
 def _extract_zh_names(text: str) -> list[str]:
-    """Extract Chinese names from text using surname boundary detection."""
+    """Extract Chinese names from text using surname boundary detection.
+
+    Uses a whitelist of 2-char names for accuracy. Falls back to
+    boundary-based detection for unknown names.
+    """
+    # ── Hard-coded common names from this story series ──
+    # This avoids mis-parsing names in running text
+    KNOWN_NAMES = {"全叔", "張哲", "阿娥", "林秀蓮", "陳太太", "老王", "許文琪",
+                   "老張", "阿公", "小哲", "秀蓮", "阿嬤"}
+
     names = []
+    # First pass: find exact known names
+    for name in KNOWN_NAMES:
+        if name in text:
+            names.append(name)
+
+    if names:
+        return names
+
+    # Fallback: boundary-based detection for unknown names
+    # Characters that can follow a name (word boundaries)
+    BOUNDARY = set(
+        "的說問答站坐走跑看望握拿蹲修寄去在笑嘆低大急著是了過來到被把讓給也與和及"
+        "，。！？、：；「」『』（）—…\n "
+        "就走站坐看聽說問想記發買賣帶幫叫送收打吃煮炒切洗會能要"
+        "這那裡外前後上下中旁邊側"
+        "回放下轉拿起走跑站坐看聽說寫讀想記打開關推拉提背端拿"
+    )
     for m in re.finditer(r'[\u4e00-\u9fff]+', text):
         chunk = m.group(0)
         for i, ch in enumerate(chunk):
             if ch in ZH_SURNAMES and i + 1 < len(chunk):
-                # Surname found — take 2-3 chars as the name
-                for name_len in (2, 3):
-                    if i + name_len > len(chunk):
-                        continue
-                    end = i + name_len
-                    after = chunk[end] if end < len(chunk) else ""
-                    if not after or after in "的說問答站坐走跑看望握拿蹲修寄去在笑嘆低大急著是了過來到被把讓給也與和及":
-                        names.append(chunk[i:end])
-                        break
-                break
+                # Try 2-char name first (most common)
+                name_2 = chunk[i:i+2]
+                after_2 = chunk[i+2] if i+2 < len(chunk) else ""
+                if not after_2 or after_2 in BOUNDARY:
+                    names.append(name_2)
+                    break
+                # Try 3-char name
+                name_3 = chunk[i:i+3]
+                after_3 = chunk[i+3] if i+3 < len(chunk) else ""
+                if not after_3 or after_3 in BOUNDARY:
+                    names.append(name_3)
+                    break
     return names
 
 
@@ -277,8 +306,8 @@ def _detect_speaker(text_before: str, text_after: str, text_after_is_attr: bool,
         m = re.match(r'^([A-Z][a-zA-Z]+)\s', text_before)
         if m and m.group(1) not in NON_NAMES:
             return m.group(1)
-        # Chinese: Name + 說/笑著說 before 「 (exclude pronoun starters)
-        m = re.search(r'([^他她它我你這那\n][\u4e00-\u9fff]{1,3})(?:笑著|輕聲|低聲|大聲)?(?:寫道|說道|問道|答道|說|問)[：:]?$', text_before)
+        # Chinese: Name + 說/笑著說 before 「 (name must be at start of sentence)
+        m = re.match(r'^([\u4e00-\u9fff][\u4e00-\u9fff]{1,2})(?:笑著|輕聲|低聲|大聲|急著)?(?:寫道|說道|問道|答道|說|問)[：:]?$', text_before)
         if m:
             return m.group(1)
         # Chinese: look for name at start of narration (「妳不能去，」他說 → 他 in between)
@@ -305,11 +334,12 @@ def _detect_speaker(text_before: str, text_after: str, text_after_is_attr: bool,
 class VoiceAssigner:
     """Assign unique voices to characters in order of first dialogue."""
 
-    def __init__(self, male_voices: list[str] = None, female_voices: list[str] = None):
-        self._char_voice: dict[str, str] = {}
+    def __init__(self, male_voices: list[str] = None, female_voices: list[str] = None,
+                 initial: dict[str, str] = None):
+        self._char_voice: dict[str, str] = dict(initial) if initial else {}
         self._male = male_voices or MALE_VOICES
         self._female = female_voices or FEMALE_VOICES
-        self._idx = 0
+        self._idx = len(self._char_voice)
 
     def assign(self, character: str) -> str:
         if character in self._char_voice:
@@ -323,8 +353,14 @@ class VoiceAssigner:
 
 # ── Main parser ────────────────────────────────────────────────────────────────
 
-def parse_story(text: str, lang: str = "en", source_file: str = "") -> dict:
-    """Parse plain text story into Story Studio JSON project."""
+def parse_story(text: str, lang: str = "en", source_file: str = "",
+                initial_voices: dict[str, str] = None) -> dict:
+    """Parse plain text story into Story Studio JSON project.
+
+    Args:
+        initial_voices: Pre-seeded character→voice mapping (e.g. from book.json).
+                        Characters already in this dict keep their assigned voice.
+    """
     lines = text.split("\n")
 
     # Extract title from first non-empty line
@@ -367,14 +403,16 @@ def parse_story(text: str, lang: str = "en", source_file: str = "") -> dict:
         _male = MALE_VOICES
         _female = FEMALE_VOICES
 
-    assigner = VoiceAssigner(_male, _female)
+    # Pre-seed voices from book.json (exclude Narrator — handled separately)
+    seed = {k: v for k, v in (initial_voices or {}).items() if k != "Narrator"} if initial_voices else None
+    assigner = VoiceAssigner(_male, _female, initial=seed)
     segments: list[dict] = []
     seg_counter = 0
     last_speaker = ""       # most recent dialogue speaker
     prev_speaker = ""       # speaker before last (for turn-taking)
     speaker_counter = 0    # for generating fallback names
     last_narration = ""    # text of most recent narration segment
-    known_chars: set[str] = set()
+    known_chars: set[str] = set(seed.keys()) if seed else set()
 
     # Language-aware narrator voice
     narr_voice, narr_lang = _narrator_for_lang(lang)
@@ -514,7 +552,7 @@ def _make_segment(idx: int, character: str, text: str, voice: str,
 
 # ── Produce (CLI audio generation) ─────────────────────────────────────────────
 
-def produce(story_json_path: str):
+def produce(story_json_path: str, output_path: str = None):
     """Read a .story.json file and generate audio directly (no web server needed)."""
     import numpy as np
     import soundfile as sf
@@ -602,11 +640,15 @@ def produce(story_json_path: str):
     combined = np.concatenate(audio_parts)
 
     # Write output
-    ts = time.strftime("%Y%m%d_%H%M%S")
-    slug = title.lower().replace(" ", "_")[:30]
-    out_dir = Path("outputs/story_studio")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{slug}_{ts}.{output_format}"
+    if output_path:
+        out_path = Path(output_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        slug = title.lower().replace(" ", "_")[:30]
+        out_dir = Path("outputs/story_studio")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"{slug}_{ts}.{output_format}"
 
     sf.write(
         str(out_path), combined, sr,
@@ -626,6 +668,231 @@ def produce(story_json_path: str):
     print(f"\nSaved: {out_path}")
     print(f"Open:  open {out_path}")
 
+    return {"path": str(out_path), "duration_s": total_audio_s, "segments": n,
+            "format": output_format, "size_kb": file_kb}
+
+
+# ── Book CLI helpers ────────────────────────────────────────────────────────────
+
+def _run_init_book(name: str, title: str, lang: str, author: str, genre: str):
+    """Create a new book project scaffold."""
+    from book_manager import BookManager
+    bm = BookManager()
+    bm.init_book(name, title=title or name, language=lang, author=author, genre=genre)
+    book_dir = bm.get_book_dir(name)
+    print(f"  Created: {book_dir}/")
+    print(f"  Config:  {book_dir / 'book.json'}")
+    print(f"  Chapters: {book_dir / 'chapters'}/")
+    print(f"\nNext steps:")
+    print(f"  1. Place chapter files: {book_dir}/chapters/chapter-001.txt")
+    print(f"  2. Parse: python story_to_voice.py parse-chapter {book_dir}/")
+    print(f"  3. Produce: python story_to_voice.py produce-book {book_dir}")
+
+
+def _run_parse_chapter(book_dir: str, chapter_num: Optional[int] = None):
+    """Parse chapter .txt → .story.json using book.json character registry."""
+    from book_manager import BookManager
+    bm = BookManager()
+    book_path = Path(book_dir)
+
+    # Resolve book name
+    if book_path.is_dir() and (book_path / "book.json").exists():
+        name = book_path.name
+    else:
+        name = book_dir.rstrip("/")
+        if not (bm.books_dir / name / "book.json").exists():
+            print(f"Error: book not found at {book_dir}", file=sys.stderr)
+            sys.exit(1)
+
+    book = bm.get_book(name)
+    if not book:
+        print(f"Error: could not load book '{name}'", file=sys.stderr)
+        sys.exit(1)
+
+    lang = book.get("language", "zh")
+    characters = book.get("characters", {})
+
+    # Build initial voice map from book.json characters
+    initial_voices = {}
+    for char_name, char_info in characters.items():
+        if char_name != "Narrator":
+            initial_voices[char_name] = char_info.get("voice", "")
+
+    # Determine which chapters to parse
+    if chapter_num is not None:
+        targets = [c for c in book.get("chapters", []) if c["number"] == chapter_num]
+        if not targets:
+            print(f"Error: chapter {chapter_num:03d} not found in book.json", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Parse all chapters that have .txt but no .story.json (or status=pending)
+        targets = [c for c in book.get("chapters", []) if c.get("status") in ("pending", None)]
+        if not targets:
+            # Also check for .txt files not yet in book.json
+            targets = []
+
+    if not targets:
+        # Scan for any un-parsed .txt files
+        chapters_dir = bm.books_dir / name / "chapters"
+        if chapters_dir.exists():
+            for f in sorted(chapters_dir.glob("chapter-*.txt")):
+                m = re.match(r"chapter-(\d+)\.txt", f.name)
+                if not m:
+                    continue
+                num = int(m.group(1))
+                story_json = f.with_suffix(".story.json")
+                if not story_json.exists() or chapter_num == num:
+                    targets.append({"number": num, "source": f.name})
+
+    if not targets:
+        print("  No chapters to parse. All chapters already have .story.json files.")
+        return
+
+    print(f"Book: {book.get('title', name)}")
+    print(f"Language: {lang}")
+    print(f"Existing characters: {', '.join(characters.keys())}")
+    print(f"Chapters to parse: {len(targets)}")
+
+    for ch in targets:
+        num = ch["number"]
+        txt_path = bm.get_chapter_txt_path(name, num)
+        if not txt_path.exists():
+            print(f"\n  Chapter {num:03d}: SKIPPED (no .txt file)")
+            continue
+
+        text = txt_path.read_text(encoding="utf-8")
+        initial_voices_copy = dict(initial_voices)  # copy so each chapter starts clean
+
+        story_data = parse_story(text, lang=lang, source_file=txt_path.name,
+                                 initial_voices=initial_voices_copy)
+
+        # Override narrator voice from book.json if available
+        if "Narrator" in characters:
+            narr_voice = characters["Narrator"].get("voice", "")
+            narr_lang = characters["Narrator"].get("lang", lang)
+            if narr_voice:
+                for seg in story_data["segments"]:
+                    if seg["character"] == "Narrator":
+                        seg["voice"] = narr_voice
+                        seg["lang"] = narr_lang
+
+        # Override known character voices from book.json
+        for seg in story_data["segments"]:
+            char = seg["character"]
+            if char in characters:
+                seg["voice"] = characters[char].get("voice", seg["voice"])
+                seg["lang"] = characters[char].get("lang", seg["lang"])
+
+        # Save .story.json
+        bm.save_chapter_story(name, num, story_data)
+
+        # Detect new characters and update book.json
+        seg_chars = {s["character"] for s in story_data["segments"]}
+        new_chars = seg_chars - set(characters.keys())
+        if new_chars:
+            # Use book_manager to resolve new characters
+            new_char_data = []
+            for char in new_chars:
+                new_char_data.append({
+                    "character": char,
+                    "voice": next((s["voice"] for s in story_data["segments"] if s["character"] == char), ""),
+                    "lang": next((s["lang"] for s in story_data["segments"] if s["character"] == char), lang),
+                    "gender": _guess_gender(char),
+                    "role": "minor",
+                })
+            updated_chars = bm.resolve_characters(name, new_char_data)
+            bm.update_characters(name, updated_chars)
+            characters = updated_chars  # refresh for next chapter
+            initial_voices = {k: v.get("voice", "") for k, v in characters.items() if k != "Narrator"}
+
+        n_segs = len(story_data["segments"])
+        char_list = sorted({s["character"] for s in story_data["segments"]})
+        print(f"\n  Chapter {num:03d}: {n_segs} segments, {len(char_list)} characters: {', '.join(char_list)}")
+        if new_chars:
+            print(f"    New characters: {', '.join(new_chars)}")
+
+    print(f"\n{'─'*50}")
+    print(f"Parsed {len(targets)} chapter(s)")
+    print(f"Characters in book: {', '.join(characters.keys())}")
+    print(f"\nProduce audio:")
+    print(f"  python story_to_voice.py produce-book books/{name}/")
+
+
+def _guess_gender(char_name: str) -> str:
+    """Guess gender from Chinese character name heuristics."""
+    if char_name == "Narrator":
+        return "male"
+    # Common female name characters
+    female_chars = set("妹姐姑婆娘嬸阿姨媽蓮瑤芳珠娥琪婷")
+    # Check last character (most indicative)
+    if char_name and char_name[-1] in female_chars:
+        return "female"
+    return "male"
+
+
+def _run_produce_book(book_dir: str, chapter_num: Optional[int] = None, force: bool = False):
+    """Produce audio for book chapters."""
+    from book_manager import BookManager
+    bm = BookManager()
+    book_path = Path(book_dir)
+
+    # Resolve book name from directory
+    if book_path.is_dir() and (book_path / "book.json").exists():
+        name = book_path.name
+    else:
+        # Try as a book name
+        name = book_dir.rstrip("/")
+        if not (bm.books_dir / name / "book.json").exists():
+            print(f"Error: book not found at {book_dir}", file=sys.stderr)
+            sys.exit(1)
+
+    book = bm.get_book(name)
+    if not book:
+        print(f"Error: could not load book '{name}'", file=sys.stderr)
+        sys.exit(1)
+
+    chapters = book.get("chapters", [])
+    title = book.get("title", name)
+    print(f"Book: {title}")
+
+    # Filter chapters to produce
+    if chapter_num is not None:
+        targets = [c for c in chapters if c["number"] == chapter_num]
+        if not targets:
+            print(f"Error: chapter {chapter_num:03d} not found", file=sys.stderr)
+            sys.exit(1)
+    else:
+        targets = [c for c in chapters if force or c.get("status") != "produced"]
+
+    if not targets:
+        print("  All chapters already produced. Use --force to re-produce.")
+        return
+
+    print(f"  Chapters to produce: {len(targets)}")
+
+    for ch in targets:
+        num = ch["number"]
+        story_path = bm.get_chapter_story_path(name, num)
+        audio_path = bm.get_chapter_audio_path(name, num)
+
+        if not story_path.exists():
+            print(f"\n  Chapter {num:03d}: SKIPPED (no .story.json)")
+            continue
+
+        print(f"\n{'─'*50}")
+        print(f"  Chapter {num:03d}")
+        result = produce(str(story_path), output_path=str(audio_path))
+        bm.update_chapter_status(name, num, "produced",
+                                  duration_s=result["duration_s"],
+                                  audio_filename=audio_path.name)
+
+    print(f"\n{'='*50}")
+    print(f"Book production complete: {title}")
+    produced = [c for c in bm.get_book(name).get("chapters", []) if c.get("status") == "produced"]
+    total_dur = sum(c.get("duration_s") or 0 for c in produced)
+    print(f"  Produced: {len(produced)}/{len(chapters)} chapters")
+    print(f"  Total duration: {total_dur:.1f}s ({total_dur/60:.1f} min)")
+
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
@@ -635,12 +902,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Commands:
-  parse    Convert plain text story → .story.json
-  produce  Generate audio from .story.json (no web server needed)
+  parse         Convert plain text story → .story.json
+  produce       Generate audio from .story.json (no web server needed)
+  init-book     Create a new multi-chapter book project
+  produce-book  Generate audio for all/specific chapters in a book
 
 Examples:
   python story_to_voice.py parse story.txt --lang zh
   python story_to_voice.py produce stories/my_story.story.json
+  python story_to_voice.py init-book my_novel --lang zh --title "我的小說"
+  python story_to_voice.py produce-book books/my_novel/
+  python story_to_voice.py produce-book books/my_novel/ --chapter 003
         """,
     )
     sub = parser.add_subparsers(dest="command")
@@ -654,6 +926,26 @@ Examples:
     # produce subcommand
     p_prod = sub.add_parser("produce", help="Generate audio from .story.json")
     p_prod.add_argument("input", help="Path to .story.json file")
+    p_prod.add_argument("-o", "--output", default=None, help="Output audio path")
+
+    # init-book subcommand
+    p_init = sub.add_parser("init-book", help="Create a new multi-chapter book project")
+    p_init.add_argument("name", help="Book name (directory name)")
+    p_init.add_argument("--title", default="", help="Book title")
+    p_init.add_argument("--lang", default="zh", help="Language code (default: zh)")
+    p_init.add_argument("--author", default="", help="Author name")
+    p_init.add_argument("--genre", default="", help="Genre")
+
+    # produce-book subcommand
+    p_book = sub.add_parser("produce-book", help="Generate audio for book chapters")
+    p_book.add_argument("book_dir", help="Path to book directory (e.g. books/my_novel/)")
+    p_book.add_argument("--chapter", type=int, default=None, help="Produce specific chapter number only")
+    p_book.add_argument("--force", action="store_true", help="Re-produce even if already produced")
+
+    # parse-chapter subcommand
+    p_pch = sub.add_parser("parse-chapter", help="Parse chapter .txt → .story.json using book.json characters")
+    p_pch.add_argument("book_dir", help="Path to book directory (e.g. books/my_novel/)")
+    p_pch.add_argument("--chapter", type=int, default=None, help="Specific chapter number (default: all un-parsed)")
 
     # backward compat: bare positional arg defaults to parse
     parser.add_argument("input_legacy", nargs="?", help=argparse.SUPPRESS)
@@ -661,9 +953,15 @@ Examples:
     args = parser.parse_args()
 
     if args.command == "produce":
-        produce(args.input)
+        produce(args.input, output_path=args.output)
     elif args.command == "parse":
         _run_parse(args.input, args.output, args.lang)
+    elif args.command == "init-book":
+        _run_init_book(args.name, args.title, args.lang, args.author, args.genre)
+    elif args.command == "produce-book":
+        _run_produce_book(args.book_dir, args.chapter, args.force)
+    elif args.command == "parse-chapter":
+        _run_parse_chapter(args.book_dir, args.chapter)
     else:
         # Backward compat: bare "story_to_voice.py story.txt"
         if args.input_legacy:
