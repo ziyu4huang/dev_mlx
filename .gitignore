@@ -4,6 +4,6 @@ outputs/
 __pycache__/
 *.pyc
 .DS_Store
-books/*/chapters/*.flac
-book_browser_chapter1.png
+**/books/*/chapters/*.flac
+*.png
 .pytest_cache/
