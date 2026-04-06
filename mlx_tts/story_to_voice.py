@@ -512,40 +512,184 @@ def _make_segment(idx: int, character: str, text: str, voice: str,
     }
 
 
+# ── Produce (CLI audio generation) ─────────────────────────────────────────────
+
+def produce(story_json_path: str):
+    """Read a .story.json file and generate audio directly (no web server needed)."""
+    import numpy as np
+    import soundfile as sf
+    import mlx.core as mx
+
+    sys.path.insert(0, str(Path(__file__).parent))
+    from mlx_tts.generator import TTSGenerator
+    from mlx_tts.voices import LANGUAGES, EMOTIONS, emotion_speed
+
+    SAMPLE_RATE = 24000
+
+    src = Path(story_json_path)
+    if not src.exists():
+        print(f"Error: {src} not found", file=sys.stderr)
+        sys.exit(1)
+
+    project = json.loads(src.read_text(encoding="utf-8"))
+    segments = project.get("segments", [])
+    title = project.get("title", "Untitled")
+    silence_ms = project.get("silence_ms", 500)
+    output_format = project.get("output_format", "flac")
+    n = len(segments)
+
+    if not segments:
+        print("Error: no segments found", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Story: {title}")
+    print(f"Segments: {n}")
+    print(f"Loading model...")
+
+    gen = TTSGenerator(verbose=False)
+    gen._load()
+
+    silence = np.zeros(int(SAMPLE_RATE * silence_ms / 1000), dtype=np.float32)
+    audio_parts = []
+    total_audio_s = 0.0
+    t_wall = time.perf_counter()
+
+    for idx, seg in enumerate(segments):
+        text = seg["text"]
+        voice = seg.get("voice", "af_heart")
+        lang = seg.get("lang", "en-us")
+        emotion = seg.get("emotion", "neutral")
+        speed = seg.get("speed", 1.0)
+        character = seg.get("character", "?")
+
+        lang_info = LANGUAGES.get(lang)
+        if not lang_info:
+            print(f"  Warning: unknown language '{lang}', defaulting to en-us")
+            lang_code = "en-us"
+        else:
+            lang_code = lang_info["code"]
+
+        eff_speed = emotion_speed(speed, emotion)
+        preview = text[:50] + ("..." if len(text) > 50 else "")
+        print(f"  [{idx+1:2d}/{n}] {character}: {preview}")
+
+        t0 = time.perf_counter()
+        chunks = []
+        sr = SAMPLE_RATE
+        for result in gen._model.generate(
+            text=text, voice=voice, speed=eff_speed, lang_code=lang_code,
+        ):
+            arr = np.array(result.audio, copy=False).flatten().astype(np.float32)
+            chunks.append(arr)
+            sr = result.sample_rate
+
+        mx.clear_cache()
+        if not chunks:
+            print(f"    Warning: no audio generated for segment {idx+1}")
+            continue
+
+        audio_np = np.concatenate(chunks) if len(chunks) > 1 else chunks[0]
+        dur = len(audio_np) / sr
+        elapsed = time.perf_counter() - t0
+        total_audio_s += dur
+        print(f"          {dur:.1f}s (rtf {elapsed/dur:.2f}x)")
+
+        audio_parts.append(audio_np)
+        if idx < n - 1:
+            audio_parts.append(silence)
+
+    wall = time.perf_counter() - t_wall
+    combined = np.concatenate(audio_parts)
+
+    # Write output
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    slug = title.lower().replace(" ", "_")[:30]
+    out_dir = Path("outputs/story_studio")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{slug}_{ts}.{output_format}"
+
+    sf.write(
+        str(out_path), combined, sr,
+        format="FLAC" if output_format == "flac" else "WAV",
+        subtype="PCM_24" if output_format == "flac" else "PCM_16",
+    )
+
+    file_kb = out_path.stat().st_size / 1024
+    print(f"\n{'─'*50}")
+    print(f"Title      : {title}")
+    print(f"Duration   : {total_audio_s:.1f}s ({total_audio_s/60:.1f} min)")
+    print(f"Wall time  : {wall:.1f}s")
+    print(f"RTF        : {wall/total_audio_s:.2f}x")
+    print(f"Segments   : {n}")
+    print(f"Format     : {output_format}")
+    print(f"Size       : {file_kb:.0f} KB")
+    print(f"\nSaved: {out_path}")
+    print(f"Open:  open {out_path}")
+
+
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Convert plain text story → Story Studio .story.json",
+        description="Story-to-voice pipeline: text → .story.json → audio",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Pipeline:
-  python story_to_voice.py story.txt
-  → generates story.story.json
-  → Import in Story Studio GUI → Produce → FLAC/WAV audiobook
+Commands:
+  parse    Convert plain text story → .story.json
+  produce  Generate audio from .story.json (no web server needed)
+
+Examples:
+  python story_to_voice.py parse story.txt --lang zh
+  python story_to_voice.py produce stories/my_story.story.json
         """,
     )
-    parser.add_argument("input", help="Plain text story file")
-    parser.add_argument("-o", "--output", help="Output .story.json path (default: <stem>.story.json)")
-    parser.add_argument("--lang", default="en", help="Language code (default: en)")
+    sub = parser.add_subparsers(dest="command")
+
+    # parse subcommand
+    p_parse = sub.add_parser("parse", help="Convert text → .story.json")
+    p_parse.add_argument("input", help="Plain text story file")
+    p_parse.add_argument("-o", "--output", help="Output path (default: <stem>.story.json)")
+    p_parse.add_argument("--lang", default="en", help="Language code (default: en)")
+
+    # produce subcommand
+    p_prod = sub.add_parser("produce", help="Generate audio from .story.json")
+    p_prod.add_argument("input", help="Path to .story.json file")
+
+    # backward compat: bare positional arg defaults to parse
+    parser.add_argument("input_legacy", nargs="?", help=argparse.SUPPRESS)
+
     args = parser.parse_args()
 
-    src = Path(args.input)
+    if args.command == "produce":
+        produce(args.input)
+    elif args.command == "parse":
+        _run_parse(args.input, args.output, args.lang)
+    else:
+        # Backward compat: bare "story_to_voice.py story.txt"
+        if args.input_legacy:
+            _run_parse(args.input_legacy, None, "en")
+        else:
+            parser.print_help()
+
+
+def _run_parse(input_path: str, output_path: Optional[str], lang: str):
+    src = Path(input_path)
     if not src.exists():
         print(f"Error: {src} not found", file=sys.stderr)
         sys.exit(1)
 
     text = src.read_text()
-    project = parse_story(text, lang=args.lang, source_file=src.name)
+    project = parse_story(text, lang=lang, source_file=src.name)
 
-    out_path = Path(args.output) if args.output else src.with_suffix(".story.json")
-    out_path.write_text(json.dumps(project, indent=2, ensure_ascii=False))
+    out = Path(output_path) if output_path else src.with_suffix(".story.json")
+    out.write_text(json.dumps(project, indent=2, ensure_ascii=False))
 
     n_segs = len(project["segments"])
     chars = sorted({s["character"] for s in project["segments"]})
-    print(f"  {src.name} → {out_path.name}")
+    print(f"  {src.name} → {out.name}")
     print(f"  {n_segs} segments, {len(chars)} characters: {', '.join(chars)}")
-    print(f"  Import in Story Studio: http://localhost:7861")
+    print(f"\nProduce audio:")
+    print(f"  python story_to_voice.py produce {out}")
 
 
 if __name__ == "__main__":
