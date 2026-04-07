@@ -7,3 +7,4 @@ __pycache__/
 **/books/*/chapters/*.flac
 /*.png
 .pytest_cache/
+node_modules/
