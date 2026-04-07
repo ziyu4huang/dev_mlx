@@ -8,3 +8,5 @@ __pycache__/
 /*.png
 .pytest_cache/
 node_modules/
+presentation/*/out/
+presentation/*/public/audio/*.flac

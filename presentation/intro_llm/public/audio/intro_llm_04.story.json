@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "title": "intro_llm_04",
+  "silence_ms": 400,
+  "output_format": "flac",
+  "metadata": {
+    "source": "intro_llm",
+    "created": "2026-04-07T00:00:00",
+    "author": "",
+    "language": "zh"
+  },
+  "segments": [
+    {
+      "id": "seg_1",
+      "character": "Narrator",
+      "text": "大語言模型的訓練分為三個階段。第一是預訓練，模型閱讀大量文字，學習語言的基本規律。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "storytelling",
+      "speed": 0.97
+    },
+    {
+      "id": "seg_2",
+      "character": "Narrator",
+      "text": "第二是微調，用高品質的對話資料讓模型學會更自然的互動方式。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "calm",
+      "speed": 0.95
+    },
+    {
+      "id": "seg_3",
+      "character": "Narrator",
+      "text": "第三是 RLHF，也就是人類回饋強化學習，讓模型的回答更符合人類的期望和價值觀。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "serious",
+      "speed": 0.95
+    },
+    {
+      "id": "seg_4",
+      "character": "Narrator",
+      "text": "每一個階段都讓模型變得更加強大和可靠。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "storytelling",
+      "speed": 0.97
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "title": "intro_llm_08",
+  "silence_ms": 400,
+  "output_format": "flac",
+  "metadata": {
+    "source": "intro_llm",
+    "created": "2026-04-07T00:00:00",
+    "author": "",
+    "language": "zh"
+  },
+  "segments": [
+    {
+      "id": "seg_1",
+      "character": "Narrator",
+      "text": "大語言模型的發展才剛剛開始。未來我們會看到更小的模型在手機和筆電上本地運行，更加個人化和隱私友善。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "storytelling",
+      "speed": 0.97
+    },
+    {
+      "id": "seg_2",
+      "character": "Narrator",
+      "text": "多模態模型能夠同時理解文字、圖片、聲音和影片。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "calm",
+      "speed": 0.95
+    },
+    {
+      "id": "seg_3",
+      "character": "Narrator",
+      "text": "AI Agent 能夠自主完成複雜的多步驟任務。開源社群也在快速進步，讓更多人能參與和貢獻。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "excited",
+      "speed": 1.0
+    }
+  ]
+}

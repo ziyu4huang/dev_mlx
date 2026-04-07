@@ -1,0 +1,22 @@
+{
+  "name": "intro-llm",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "remotion studio src/Root.tsx",
+    "build": "remotion render src/Root.tsx IntroLlm out/video.mp4",
+    "build:mov": "remotion render src/Root.tsx IntroLlm out/video.mov --codec prores",
+    "build:gif": "remotion render src/Root.tsx IntroLlm out/preview.gif --codec gif"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.242",
+    "@remotion/paths": "4.0.242",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "4.0.242"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

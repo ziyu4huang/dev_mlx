@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "title": "intro_llm_05",
+  "silence_ms": 400,
+  "output_format": "flac",
+  "metadata": {
+    "source": "intro_llm",
+    "created": "2026-04-07T00:00:00",
+    "author": "",
+    "language": "zh"
+  },
+  "segments": [
+    {
+      "id": "seg_1",
+      "character": "Narrator",
+      "text": "Token 是模型處理文字的基本單位，大約對應一個詞或半個詞。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "storytelling",
+      "speed": 0.97
+    },
+    {
+      "id": "seg_2",
+      "character": "Narrator",
+      "text": "Embedding 是把文字轉換成數字向量的過程，讓模型能夠進行數學運算，理解詞語之間的語意關係。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "calm",
+      "speed": 0.95
+    },
+    {
+      "id": "seg_3",
+      "character": "Narrator",
+      "text": "Context Window 是模型一次能處理的最大文字長度。GPT-4 的上下文視窗可以達到十二萬八千個 Token，相當於一本三百頁的書。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "serious",
+      "speed": 0.95
+    }
+  ]
+}

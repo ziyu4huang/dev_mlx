@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "title": "intro_llm_02",
+  "silence_ms": 400,
+  "output_format": "flac",
+  "metadata": {
+    "source": "intro_llm",
+    "created": "2026-04-07T00:00:00",
+    "author": "",
+    "language": "zh"
+  },
+  "segments": [
+    {
+      "id": "seg_1",
+      "character": "Narrator",
+      "text": "大語言模型，簡稱 LLM，是一種能夠理解和生成人類語言的人工智慧系統。它透過閱讀大量的文字資料來學習語言的規律。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "storytelling",
+      "speed": 0.97
+    },
+    {
+      "id": "seg_2",
+      "character": "Narrator",
+      "text": "你可以把它想像成一個讀過整座圖書館的學生，它能根據學到的知識來回答問題、寫文章、甚至寫程式。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "calm",
+      "speed": 0.95
+    },
+    {
+      "id": "seg_3",
+      "character": "Narrator",
+      "text": "近年來，從 ChatGPT 到 Claude，從 Gemini 到 Llama，大語言模型已經成為人工智慧領域最引人注目的技術。",
+      "voice": "zm_yunjian",
+      "lang": "zh",
+      "emotion": "serious",
+      "speed": 0.95
+    }
+  ]
+}
